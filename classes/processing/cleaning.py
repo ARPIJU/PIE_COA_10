@@ -31,3 +31,26 @@ class DataCleaner:
         if "timestamp" in df.columns:
             df = df.dropna(subset=["timestamp"])
         return df
+
+    def clean_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Nettoyer perf_factor
+        if "perf_factor" in df.columns:
+            df["perf_factor"] = (
+                df["perf_factor"]
+                .astype(str)
+                .str.replace("..", ".", regex=False)
+                .str.replace(",", ".", regex=False)
+            )
+            df["perf_factor"] = pd.to_numeric(df["perf_factor"], errors="coerce")
+
+        # Nettoyer fuel_flow si besoin
+        if "fuel_flow" in df.columns:
+            df["fuel_flow"] = (
+                df["fuel_flow"]
+                .astype(str)
+                .str.replace("..", ".", regex=False)
+                .str.replace(",", ".", regex=False)
+            )
+            df["fuel_flow"] = pd.to_numeric(df["fuel_flow"], errors="coerce")
+
+        return df
