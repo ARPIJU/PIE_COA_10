@@ -48,13 +48,16 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    # 🔍 Debug: inspect columns after mapping
+    # 🔍 Bloc de débogage : inspecter colonnes et premières lignes
+    print("\n=== DEBUG TXT ===")
     print("Colonnes après mapping:", df_txt.columns.tolist())
-    print(df_txt.head(3))
+    print("\nPremières lignes brutes du TXT (10x10):")
+    print(df_txt.iloc[:10, :10])
+    print("=== FIN DEBUG ===\n")
 
     # 3) Cleaning and basic quality flags
     cleaner = DataCleaner()
-    # Build timestamp only from date (since no time column exists)
+    # Build timestamp only from date (if present)
     if "date" in df_txt.columns:
         df_txt["timestamp"] = pd.to_datetime(df_txt["date"], errors="coerce")
 
