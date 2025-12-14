@@ -14,11 +14,10 @@
   "columns_mapping": {
     "txt": {
       "Date Recorded ()": "date",
-      "Time": "time",
       "tail": "tail_number",
       "kilograms_-_kg": "fuel_flow",
       "mach": "mach",
-      "celsius_-_c": "oat"
+      "oat": "oat"
     },
     "excel_events": {
       "Date": "date",
