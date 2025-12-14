@@ -9,7 +9,7 @@ class ImpactAnalyzer:
         Les DataFrames doivent être triés par les colonnes de jointure.
         """
 
-        # 🔧 Correction : tri explicite des clés avant merge_asof
+        # ✅ Correction : tri explicite des clés avant merge_asof
         if left_on in measures.columns:
             measures = measures.sort_values(left_on).reset_index(drop=True)
         if right_on in events.columns:
