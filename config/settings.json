@@ -23,7 +23,7 @@
       "flt_level": "altitude"
     },
     "excel_events": {
-      "date": "event_date",
+      "date": "date",
       "event": "event",
       "remarks": "remarks",
       "update_?": "update_flag"
