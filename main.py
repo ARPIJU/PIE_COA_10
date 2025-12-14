@@ -22,7 +22,6 @@ OUTPUTS_DIR = BASE / "outputs"
 
 
 def run_pipeline():
-    # 0) Settings + logging
     if not SETTINGS_PATH.exists():
         raise FileNotFoundError(f"Settings file not found: {SETTINGS_PATH}")
     with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
@@ -32,7 +31,6 @@ def run_pipeline():
     logger = logging.getLogger("main")
     logger.info("Starting pipeline")
 
-    # 1) Load data
     loader = DataLoader(BASE, SETTINGS_PATH)
     df_txt = loader.load_boeing_txt()
     if df_txt is None or df_txt.empty:
@@ -42,13 +40,11 @@ def run_pipeline():
     events_df, sheet_used = loader.load_first_available_events()
     logger.info("Events loaded from sheet: %s", sheet_used)
 
-    # 2) Schema standardization and mappings
     schema = DataSchema(settings)
     df_txt = schema.standardize_columns(df_txt)
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    # 3) Cleaning
     cleaner = DataCleaner()
     df_txt = cleaner.build_timestamp(df_txt, date_col="recorded_date", time_col="time")
     df_txt = cleaner.fix_timestamps(df_txt)
@@ -64,7 +60,10 @@ def run_pipeline():
     schema.validate_events(events_df)
 
     if "date" in events_df.columns:
-        events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
+        try:
+            events_df["date"] = pd.to_datetime(events_df["date"], format="%Y/%d/%m", errors="coerce")
+        except Exception:
+            events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce", dayfirst=True)
 
     # Tri obligatoire pour merge_asof
     if "timestamp" in df_txt.columns:
@@ -72,7 +71,6 @@ def run_pipeline():
     if "date" in events_df.columns:
         events_df = events_df.sort_values("date").reset_index(drop=True)
 
-    # 4) Feature engineering
     fe = FeatureEngineer()
     if "perf_factor" in df_txt.columns and "timestamp" in df_txt.columns:
         df_txt = fe.rolling_baseline(df_txt, metric="perf_factor", window=30)
@@ -81,7 +79,6 @@ def run_pipeline():
 
     agg_airac = fe.aggregate_by_airac(df_txt) if "timestamp" in df_txt.columns else pd.DataFrame()
 
-    # 5) Domain models (APM)
     apm = APMModels(settings)
     df_txt = apm.apply_constants(df_txt)
     if "perf_factor" in df_txt.columns:
@@ -94,7 +91,6 @@ def run_pipeline():
     else:
         logger.warning("fuel_flow not found. expected fuel computation skipped.")
 
-    # 6) Impact analysis
     analyzer = ImpactAnalyzer()
     tol_days = settings["impact"]["merge_tolerance_days"]
     merged = analyzer.join_with_events(
@@ -115,7 +111,6 @@ def run_pipeline():
         horizon_days=window_days
     )
 
-    # 7) Economics and optimization
     catalog = MaintenanceCatalog.from_settings(settings)
     fuel_price = settings["economics"]["fuel_price_per_unit"]
     constraints = settings["economics"]["constraints"]
@@ -139,7 +134,6 @@ def run_pipeline():
         default_delta_from_metric="delta_fuel_flow"
     )
 
-    # 8) Reporting
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     reporter = Reporter(OUTPUTS_DIR)
 
