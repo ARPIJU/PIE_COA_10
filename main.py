@@ -48,14 +48,6 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    # Events schema and types
-    events_df = schema.standardize_columns(events_df)
-    events_df = schema.apply_mapping_events(events_df)
-    schema.validate_events(events_df)
-
-    if "date" in events_df.columns:
-        events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
-
     # 3) Cleaning and basic quality flags
     cleaner = DataCleaner()
     # Construire timestamp à partir de date + time
@@ -65,15 +57,21 @@ def run_pipeline():
     df_txt = cleaner.remove_duplicates(df_txt)
     df_txt = cleaner.flag_quality(df_txt)
 
+    # Events schema and types
+    events_df = schema.standardize_columns(events_df)
+    events_df = schema.apply_mapping_events(events_df)
+    schema.validate_events(events_df)
+
+    if "date" in events_df.columns:
+        events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
+
     # 4) Feature engineering
     fe = FeatureEngineer()
-    # Rolling baseline on perf_factor if available
     if "perf_factor" in df_txt.columns and "timestamp" in df_txt.columns:
         df_txt = fe.rolling_baseline(df_txt, metric="perf_factor", window=30)
     else:
         logger.warning("Missing columns for rolling baseline (perf_factor/timestamp). Skipping.")
 
-    # Optional AIRAC aggregation (not mandatory for impact)
     agg_airac = fe.aggregate_by_airac(df_txt) if "timestamp" in df_txt.columns else pd.DataFrame()
 
     # 5) Domain models (APM)
@@ -121,7 +119,6 @@ def run_pipeline():
         fuel_price=fuel_price
     )
 
-    # The scheduler expects a delta_fuel column; our before_after used "delta_fuel_flow"
     if not deltas_ff.empty:
         if "delta_fuel_flow" in deltas_ff.columns and "delta_fuel" not in deltas_ff.columns:
             deltas_ff["delta_fuel"] = deltas_ff["delta_fuel_flow"]
