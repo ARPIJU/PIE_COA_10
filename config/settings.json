@@ -13,7 +13,7 @@
   },
   "columns_mapping": {
     "txt": {
-      "Date": "date",
+      "Date Recorded ()": "date",
       "Time": "time",
       "Airplane ID ()": "tail_number",
       "FF Total": "fuel_flow",
