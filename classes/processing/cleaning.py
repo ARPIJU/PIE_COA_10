@@ -23,8 +23,12 @@ class DataCleaner:
         if date_col in df.columns and time_col in df.columns:
             df["timestamp"] = pd.to_datetime(
                 df[date_col].astype(str) + " " + df[time_col].astype(str),
-                errors="coerce"
+                errors="coerce",
+                dayfirst=True
             )
         elif date_col in df.columns:
-            df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce")
+            df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
+        # Supprimer les lignes sans timestamp valide
+        if "timestamp" in df.columns:
+            df = df.dropna(subset=["timestamp"])
         return df
