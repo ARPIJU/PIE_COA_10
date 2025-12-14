@@ -1,0 +1,79 @@
+{
+  "paths": {
+    "data_dir": "data",
+    "txt_file": "Boeing_Perf_Data.txt",
+    "excel_file": "CMA-FORM-FOE-10.xlsx"
+  },
+  "txt_read": {
+    "encoding": "utf-8",
+    "fallback_encoding": "latin-1",
+    "possible_separators": [",", ";", "\t", "|"],
+    "parse_dates": ["timestamp"],
+    "dayfirst": true
+  },
+  "columns_mapping": {
+    "txt": {
+      "timestamp": "timestamp",
+      "aircraft_id": "tail_number",
+      "perf_factor": "perf_factor",
+      "fuel_flow": "fuel_flow",
+      "altitude": "altitude",
+      "temperature": "oat",
+      "mach": "mach"
+    },
+    "excel_events": {
+      "date": "date",
+      "event": "event",
+      "remarks": "remarks",
+      "update_flag": "update_"
+    }
+  },
+  "apm": {
+    "basic_perf_factor": -1.0,
+    "perf_to_fuel_factor_linear": {
+      "slope": 0.01,
+      "intercept": 0.0
+    }
+  },
+  "impact": {
+    "merge_tolerance_days": 14,
+    "before_after_window_days": 14
+  },
+  "economics": {
+    "fuel_price_per_unit": 0.8,
+    "catalog": [
+      {
+        "name": "LH engine wash",
+        "cost": 5000.0,
+        "downtime_hours": 4.0,
+        "expected_delta_pf": -0.02
+      },
+      {
+        "name": "RH engine wash",
+        "cost": 5000.0,
+        "downtime_hours": 4.0,
+        "expected_delta_pf": -0.02
+      },
+      {
+        "name": "Airframe wash",
+        "cost": 3000.0,
+        "downtime_hours": 3.0,
+        "expected_delta_pf": -0.01
+      },
+      {
+        "name": "A-check",
+        "cost": 15000.0,
+        "downtime_hours": 24.0,
+        "expected_delta_pf": -0.03
+      }
+    ],
+    "constraints": {
+      "budget": 30000.0,
+      "max_downtime_hours": 16.0
+    }
+  },
+  "excel_sheets_priority": ["FHMRB", "FHMRF", "FHMRO", "FHMRI"],
+  "logging": {
+    "level": "INFO"
+  }
+}
