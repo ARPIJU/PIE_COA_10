@@ -32,7 +32,7 @@ def run_pipeline():
     logger = logging.getLogger("main")
     logger.info("Starting pipeline")
 
-    # 1) Load data (read-only)
+    # 1) Load data
     loader = DataLoader(BASE, SETTINGS_PATH)
     df_txt = loader.load_boeing_txt()
     if df_txt is None or df_txt.empty:
@@ -48,20 +48,22 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    # Debug: inspect columns after mapping
+    # Debug
     print("Colonnes après mapping:", df_txt.columns.tolist())
     print(df_txt.head(3))
 
-    # 3) Cleaning and basic quality flags
+    # 3) Cleaning
     cleaner = DataCleaner()
-    # Build timestamp from date + time (or date-only fallback handled in cleaner)
     df_txt = cleaner.build_timestamp(df_txt, date_col="date", time_col="time")
-
     df_txt = cleaner.fix_timestamps(df_txt)
     df_txt = cleaner.remove_duplicates(df_txt)
     df_txt = cleaner.flag_quality(df_txt)
 
-    # Events schema and types
+    # Drop rows without timestamp to avoid merge errors
+    if "timestamp" in df_txt.columns:
+        df_txt = df_txt.dropna(subset=["timestamp"])
+
+    # Events schema
     events_df = schema.standardize_columns(events_df)
     events_df = schema.apply_mapping_events(events_df)
     schema.validate_events(events_df)
@@ -91,7 +93,7 @@ def run_pipeline():
     else:
         logger.warning("fuel_flow not found. expected fuel computation skipped.")
 
-    # 6) Impact analysis (join measures with events)
+    # 6) Impact analysis
     analyzer = ImpactAnalyzer()
     tol_days = settings["impact"]["merge_tolerance_days"]
     merged = analyzer.join_with_events(
