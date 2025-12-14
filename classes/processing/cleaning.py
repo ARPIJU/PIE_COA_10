@@ -5,7 +5,6 @@ class DataCleaner:
         if "timestamp" in df.columns and pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
             years = df["timestamp"].dt.year
             df["is_year_plausible"] = years >= min_year
-            # We do NOT modify timestamps; only flag
         return df
 
     def remove_duplicates(self, df: pd.DataFrame, keys=("tail_number","timestamp")) -> pd.DataFrame:
@@ -20,3 +19,13 @@ class DataCleaner:
                 df[f"{m}_isna"] = df[m].isna()
         return df
 
+    def build_timestamp(self, df: pd.DataFrame, date_col="date", time_col="time") -> pd.DataFrame:
+        """
+        Construit une colonne 'timestamp' à partir de 'date' + 'time'.
+        """
+        if date_col in df.columns and time_col in df.columns:
+            df["timestamp"] = pd.to_datetime(
+                df[date_col].astype(str) + " " + df[time_col].astype(str),
+                errors="coerce"
+            )
+        return df
