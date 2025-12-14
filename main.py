@@ -62,36 +62,29 @@ def run_pipeline():
     if "date" in events_df.columns:
         events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
 
+    # 🔍 Débogage avant merge_asof
+    print("\n=== DEBUG: Colonnes et types ===")
+    print("df_txt dtypes:\n", df_txt.dtypes)
+    print("events_df dtypes:\n", events_df.dtypes)
+
+    print("\n=== DEBUG: Avant tri ===")
+    print("df_txt timestamp head:\n", df_txt["timestamp"].head())
+    print("events_df date head:\n", events_df["date"].head())
+
     # Tri obligatoire pour merge_asof
     if "timestamp" in df_txt.columns:
         df_txt["timestamp"] = pd.to_datetime(df_txt["timestamp"], errors="coerce")
+        df_txt = df_txt.dropna(subset=["timestamp"])
         df_txt = df_txt.sort_values("timestamp").reset_index(drop=True)
 
     if "date" in events_df.columns:
         events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
+        events_df = events_df.dropna(subset=["date"])
         events_df = events_df.sort_values("date").reset_index(drop=True)
 
-    # 4) Feature engineering
-    fe = FeatureEngineer()
-    if "perf_factor" in df_txt.columns and "timestamp" in df_txt.columns:
-        df_txt = fe.rolling_baseline(df_txt, metric="perf_factor", window=30)
-    else:
-        logger.warning("Missing columns for rolling baseline (perf_factor/timestamp). Skipping.")
-
-    agg_airac = fe.aggregate_by_airac(df_txt) if "timestamp" in df_txt.columns else pd.DataFrame()
-
-    # 5) Domain models (APM)
-    apm = APMModels(settings)
-    df_txt = apm.apply_constants(df_txt)
-    if "perf_factor" in df_txt.columns:
-        df_txt = apm.perf_to_fuel_factor(df_txt, perf_col="perf_factor", out_col="fuel_factor")
-    else:
-        logger.warning("perf_factor not found. fuel_factor mapping skipped.")
-
-    if "fuel_flow" in df_txt.columns:
-        df_txt = apm.expected_fuel(df_txt, base_fuel_col="fuel_flow", factor_col="fuel_factor", out_col="fuel_expected_corr")
-    else:
-        logger.warning("fuel_flow not found. expected fuel computation skipped.")
+    print("\n=== DEBUG: Après tri ===")
+    print("df_txt timestamp head:\n", df_txt["timestamp"].head())
+    print("events_df date head:\n", events_df["date"].head())
 
     # 6) Impact analysis
     analyzer = ImpactAnalyzer()
@@ -114,7 +107,6 @@ def run_pipeline():
         horizon_days=window_days
     )
 
-    # 7) Economics and optimization
     catalog = MaintenanceCatalog.from_settings(settings)
     fuel_price = settings["economics"]["fuel_price_per_unit"]
     constraints = settings["economics"]["constraints"]
@@ -138,7 +130,6 @@ def run_pipeline():
         default_delta_from_metric="delta_fuel_flow"
     )
 
-    # 8) Reporting
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     reporter = Reporter(OUTPUTS_DIR)
 
