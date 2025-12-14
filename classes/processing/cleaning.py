@@ -21,13 +21,24 @@ class DataCleaner:
 
     def build_timestamp(self, df: pd.DataFrame, date_col="recorded_date", time_col="time") -> pd.DataFrame:
         if date_col in df.columns and time_col in df.columns:
-            df["timestamp"] = pd.to_datetime(
-                df[date_col].astype(str) + " " + df[time_col].astype(str),
-                errors="coerce",
-                dayfirst=True
-            )
+            # Conversion explicite avec format connu
+            try:
+                df["timestamp"] = pd.to_datetime(
+                    df[date_col].astype(str) + " " + df[time_col].astype(str),
+                    format="%Y/%d/%m %H:%M:%S",
+                    errors="coerce"
+                )
+            except Exception:
+                df["timestamp"] = pd.to_datetime(
+                    df[date_col].astype(str) + " " + df[time_col].astype(str),
+                    errors="coerce",
+                    dayfirst=True
+                )
         elif date_col in df.columns:
-            df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
+            try:
+                df["timestamp"] = pd.to_datetime(df[date_col], format="%Y/%d/%m", errors="coerce")
+            except Exception:
+                df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
         if "timestamp" in df.columns:
             df = df.dropna(subset=["timestamp"])
         return df
