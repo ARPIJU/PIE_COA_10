@@ -18,7 +18,7 @@ class DataLoader:
     def get_data_dir(self) -> Path:
         return self.base_path / self.settings["paths"]["data_dir"]
 
-    def load_boeing_txt(self, debug=False) -> pd.DataFrame:
+    def load_boeing_txt(self) -> pd.DataFrame:
         data_dir = self.get_data_dir()
         txt_file = data_dir / self.settings["paths"]["txt_file"]
 
@@ -30,7 +30,7 @@ class DataLoader:
         df = None
         try:
             df = pd.read_csv(txt_file, sep=None, engine="python", encoding=enc, skiprows=skip_rows)
-            logger.info("Loaded TXT with sep=None and encoding=%s", enc)
+            logger.info("Loaded TXT with sep=None and encoding=%s, skiprows=%s", enc, skip_rows)
         except Exception as e:
             logger.warning("Auto-sep failed: %s. Trying candidates...", e)
             for s in seps:
@@ -49,17 +49,6 @@ class DataLoader:
                         break
                     except Exception as e3:
                         logger.debug("Fallback failed sep='%s': %s", s, e3)
-
-        # Debug: essayer plusieurs skiprows
-        if debug:
-            for sr in range(0, 6):
-                try:
-                    test_df = pd.read_csv(txt_file, sep=None, engine="python", encoding=enc, skiprows=sr)
-                    print(f"\n=== DEBUG skiprows={sr} ===")
-                    print("Colonnes:", test_df.columns.tolist())
-                    print(test_df.head(3))
-                except Exception as e:
-                    print(f"skiprows={sr} failed: {e}")
 
         return df
 
