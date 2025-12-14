@@ -9,23 +9,25 @@
     "fallback_encoding": "latin-1",
     "possible_separators": [",", ";", "\t", "|"],
     "parse_dates": ["timestamp"],
-    "dayfirst": true
+    "dayfirst": true,
+    "skip_rows": 2
   },
   "columns_mapping": {
     "txt": {
-      "timestamp": "timestamp",
-      "aircraft_id": "tail_number",
-      "perf_factor": "perf_factor",
-      "fuel_flow": "fuel_flow",
-      "altitude": "altitude",
-      "temperature": "oat",
-      "mach": "mach"
+      "Date": "date",
+      "Time": "time",
+      "Airplane ID ()": "tail_number",
+      "FF Total": "fuel_flow",
+      "Fuel Mileage (FM)": "perf_factor",
+      "Mach": "mach",
+      "TAT (°C)": "oat",
+      "Flt Level": "altitude"
     },
     "excel_events": {
-      "date": "date",
-      "event": "event",
-      "remarks": "remarks",
-      "update_flag": "update_"
+      "Date": "date",
+      "Event": "event",
+      "Remarks": "remarks",
+      "Update ?": "update_flag"
     }
   },
   "apm": {
