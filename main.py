@@ -48,9 +48,6 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    print("Colonnes après mapping:", df_txt.columns.tolist())
-    print(df_txt.head(3))
-
     # 3) Cleaning
     cleaner = DataCleaner()
     df_txt = cleaner.build_timestamp(df_txt, date_col="recorded_date", time_col="time")
@@ -62,13 +59,18 @@ def run_pipeline():
     if "timestamp" in df_txt.columns:
         df_txt = df_txt.dropna(subset=["timestamp"])
 
-    # Events schema
     events_df = schema.standardize_columns(events_df)
     events_df = schema.apply_mapping_events(events_df)
     schema.validate_events(events_df)
 
     if "event_date" in events_df.columns:
         events_df["event_date"] = pd.to_datetime(events_df["event_date"], errors="coerce")
+
+    # Tri obligatoire pour merge_asof
+    if "timestamp" in df_txt.columns:
+        df_txt = df_txt.sort_values("timestamp")
+    if "event_date" in events_df.columns:
+        events_df = events_df.sort_values("event_date")
 
     # 4) Feature engineering
     fe = FeatureEngineer()
@@ -143,7 +145,6 @@ def run_pipeline():
 
     logger.info("Deltas (fuel_flow) before/after:")
     if not deltas_ff.empty:
-        print(deltas_ff.head(10))
         reporter.summary_tables(deltas_ff, sort_col="delta_fuel")
     else:
         logger.warning("No deltas computed; check event alignment or metrics availability.")
@@ -153,7 +154,6 @@ def run_pipeline():
 
     logger.info("Proposed maintenance plan:")
     if not plan.empty:
-        print(plan)
         reporter.export_csv(plan, filename="maintenance_plan.csv")
     else:
         logger.warning("No positive ROI events selected under constraints.")
