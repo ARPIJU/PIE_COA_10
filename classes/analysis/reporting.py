@@ -20,14 +20,14 @@ class Reporter:
     def summary_tables(self, impacts: pd.DataFrame, sort_col="delta_fuel") -> pd.DataFrame:
         summary = impacts.sort_values(sort_col, ascending=False) if not impacts.empty else impacts
         out_path = self.output_dir / "impact_summary.csv"
-        self._remove_if_exists(out_path)   # ✅ suppression avant écriture
+        self._remove_if_exists(out_path)   # Suppression avant écriture
         summary.to_csv(out_path, index=False)
         logger.info("Impact summary exported to %s", out_path)
         return summary
 
     def plot_metric(self, df: pd.DataFrame, metric="fuel_flow", event_col="event"):
         out_path = self.output_dir / f"{metric}_timeline.png"
-        self._remove_if_exists(out_path)   # ✅ suppression avant écriture
+        self._remove_if_exists(out_path)   # Suppression avant écriture
         plt.figure(figsize=(10,5))
         if metric in df.columns and "timestamp" in df.columns and not df.empty:
             plt.plot(df["timestamp"], df[metric], label=metric)
@@ -47,6 +47,6 @@ class Reporter:
 
     def export_csv(self, df: pd.DataFrame, filename="maintenance_plan.csv"):
         out_path = self.output_dir / filename
-        self._remove_if_exists(out_path)   # ✅ suppression avant écriture
+        self._remove_if_exists(out_path)   # Suppression avant écriture
         df.to_csv(out_path, index=False)
         logger.info("CSV exported to %s", out_path)
