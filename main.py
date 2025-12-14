@@ -40,6 +40,9 @@ def run_pipeline():
     events_df, sheet_used = loader.load_first_available_events()
     logger.info("Events loaded from sheet: %s", sheet_used)
 
+    # ✅ Correction : ajouter la colonne tail_number aux événements
+    events_df["tail_number"] = sheet_used
+
     schema = DataSchema(settings)
     df_txt = schema.standardize_columns(df_txt)
     df_txt = schema.apply_mapping_txt(df_txt)
@@ -62,15 +65,6 @@ def run_pipeline():
     if "date" in events_df.columns:
         events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
 
-    # 🔍 Débogage avant merge_asof
-    print("\n=== DEBUG: Colonnes et types ===")
-    print("df_txt dtypes:\n", df_txt.dtypes)
-    print("events_df dtypes:\n", events_df.dtypes)
-
-    print("\n=== DEBUG: Avant tri ===")
-    print("df_txt timestamp head:\n", df_txt["timestamp"].head())
-    print("events_df date head:\n", events_df["date"].head())
-
     # Tri obligatoire pour merge_asof
     if "timestamp" in df_txt.columns:
         df_txt["timestamp"] = pd.to_datetime(df_txt["timestamp"], errors="coerce")
@@ -81,10 +75,6 @@ def run_pipeline():
         events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
         events_df = events_df.dropna(subset=["date"])
         events_df = events_df.sort_values("date").reset_index(drop=True)
-
-    print("\n=== DEBUG: Après tri ===")
-    print("df_txt timestamp head:\n", df_txt["timestamp"].head())
-    print("events_df date head:\n", events_df["date"].head())
 
     # 6) Impact analysis
     analyzer = ImpactAnalyzer()
