@@ -38,7 +38,6 @@ def run_pipeline():
     events_df, sheet_used = loader.load_first_available_events()
     logger.info("Events loaded from sheet: %s", sheet_used)
 
-    # ✅ Ajout de la colonne tail_number aux événements
     events_df["tail_number"] = sheet_used
 
     schema = DataSchema(settings)
@@ -118,7 +117,7 @@ def run_pipeline():
         default_delta_from_metric="delta_fuel_flow"
     )
 
-    # ✅ Export forcé + warnings si vide
+    # Export forcé + warnings si vide
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     reporter = Reporter(OUTPUTS_DIR)
 
