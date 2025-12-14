@@ -15,12 +15,10 @@
     "txt": {
       "Date Recorded ()": "date",
       "Time": "time",
-      "Airplane ID ()": "tail_number",
-      "FF Total": "fuel_flow",
-      "Fuel Mileage (FM)": "perf_factor",
-      "Mach": "mach",
-      "TAT (°C)": "oat",
-      "Flt Level": "altitude"
+      "tail": "tail_number",
+      "kilograms_-_kg": "fuel_flow",
+      "mach": "mach",
+      "celsius_-_c": "oat"
     },
     "excel_events": {
       "Date": "date",
