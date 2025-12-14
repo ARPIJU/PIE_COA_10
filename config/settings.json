@@ -13,7 +13,7 @@
   },
   "columns_mapping": {
     "txt": {
-      "date_recorded_()": "date",
+      "date_recorded_()": "recorded_date",
       "time": "time",
       "airplane_id_()": "tail_number",
       "ff_total": "fuel_flow",
@@ -23,7 +23,7 @@
       "flt_level": "altitude"
     },
     "excel_events": {
-      "date": "date",
+      "date": "event_date",
       "event": "event",
       "remarks": "remarks",
       "update_?": "update_flag"
