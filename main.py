@@ -60,17 +60,18 @@ def run_pipeline():
     schema.validate_events(events_df)
 
     if "date" in events_df.columns:
-        try:
-            events_df["date"] = pd.to_datetime(events_df["date"], format="%Y/%d/%m", errors="coerce")
-        except Exception:
-            events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce", dayfirst=True)
+        events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
 
     # Tri obligatoire pour merge_asof
     if "timestamp" in df_txt.columns:
+        df_txt["timestamp"] = pd.to_datetime(df_txt["timestamp"], errors="coerce")
         df_txt = df_txt.sort_values("timestamp").reset_index(drop=True)
+
     if "date" in events_df.columns:
+        events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
         events_df = events_df.sort_values("date").reset_index(drop=True)
 
+    # 4) Feature engineering
     fe = FeatureEngineer()
     if "perf_factor" in df_txt.columns and "timestamp" in df_txt.columns:
         df_txt = fe.rolling_baseline(df_txt, metric="perf_factor", window=30)
@@ -79,6 +80,7 @@ def run_pipeline():
 
     agg_airac = fe.aggregate_by_airac(df_txt) if "timestamp" in df_txt.columns else pd.DataFrame()
 
+    # 5) Domain models (APM)
     apm = APMModels(settings)
     df_txt = apm.apply_constants(df_txt)
     if "perf_factor" in df_txt.columns:
@@ -91,6 +93,7 @@ def run_pipeline():
     else:
         logger.warning("fuel_flow not found. expected fuel computation skipped.")
 
+    # 6) Impact analysis
     analyzer = ImpactAnalyzer()
     tol_days = settings["impact"]["merge_tolerance_days"]
     merged = analyzer.join_with_events(
@@ -111,6 +114,7 @@ def run_pipeline():
         horizon_days=window_days
     )
 
+    # 7) Economics and optimization
     catalog = MaintenanceCatalog.from_settings(settings)
     fuel_price = settings["economics"]["fuel_price_per_unit"]
     constraints = settings["economics"]["constraints"]
@@ -134,6 +138,7 @@ def run_pipeline():
         default_delta_from_metric="delta_fuel_flow"
     )
 
+    # 8) Reporting
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     reporter = Reporter(OUTPUTS_DIR)
 
