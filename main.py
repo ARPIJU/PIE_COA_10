@@ -48,6 +48,10 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
+    # 🔍 Bloc de débogage : afficher les colonnes et premières lignes
+    print("Colonnes après mapping:", df_txt.columns.tolist())
+    print(df_txt.head(3))
+
     # 3) Cleaning and basic quality flags
     cleaner = DataCleaner()
     # Construire timestamp à partir de date + time
