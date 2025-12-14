@@ -8,16 +8,19 @@
     "encoding": "utf-8",
     "fallback_encoding": "latin-1",
     "possible_separators": [",", ";", "\t", "|"],
-    "skip_rows": 2,
+    "skip_rows": 5,
     "dayfirst": true
   },
   "columns_mapping": {
     "txt": {
       "Date Recorded ()": "date",
-      "tail": "tail_number",
-      "kilograms_-_kg": "fuel_flow",
-      "mach": "mach",
-      "oat": "oat"
+      "Time": "time",
+      "Airplane ID ()": "tail_number",
+      "FF Total": "fuel_flow",
+      "Fuel Mileage (FM)": "perf_factor",
+      "Mach": "mach",
+      "TAT (°C)": "oat",
+      "Flt Level": "altitude"
     },
     "excel_events": {
       "Date": "date",
