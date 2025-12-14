@@ -177,5 +177,60 @@ Il est conçu pour être **reproductible**, **transparent**, et **utile en conte
 8. **Fin du pipeline**
    - Log “Pipeline completed.” pour confirmer la complétion.
 
+---
+
+# Contenu du dossier `data`
+
+Le dossier `data` contient trois documents essentiels au fonctionnement et à la compréhension du pipeline.  
+Voici leur rôle détaillé :
+
+---
+
+### 1. `Boeing_Perf_Data.txt`
+- **Nature :** Fichier texte brut contenant les mesures de performance avion.
+- **Contenu typique :**
+  - Colonnes comme `Recorded Date`, `Time`, `Fuel Flow`, `EGT`, `N1`, `N2`, etc.
+  - Chaque ligne correspond à un enregistrement de vol ou de test.
+- **Utilité dans le pipeline :**
+  - Sert de base pour calculer les métriques (ex. fuel flow).
+  - Les colonnes sont standardisées et nettoyées (`timestamp` construit à partir de `Recorded Date` + `Time`).
+  - Alimente l’analyse avant/après pour mesurer l’impact des événements de maintenance.
+
+---
+
+### 2. `FHMRB.xlsx`
+- **Nature :** Fichier Excel contenant les événements de maintenance pour un avion identifié par le sheet `FHMRB`.
+- **Contenu typique :**
+  - Colonnes comme `Date`, `Event`, `Description`, parfois `Cost` ou `Downtime`.
+  - Chaque ligne correspond à une intervention ou inspection.
+- **Utilité dans le pipeline :**
+  - Les événements sont alignés avec les mesures du TXT via `merge_asof`.
+  - Le nom de la feuille (`FHMRB`) est utilisé comme `tail_number` pour identifier l’avion.
+  - Permet de calculer les deltas de performance avant/après chaque événement.
+
+---
+
+### 3. `APM_User_Manual.pdf`
+- **Nature :** Document PDF de référence utilisateur pour l’APM (Aircraft Performance Monitoring).
+- **Contenu typique :**
+  - Explications théoriques et pratiques sur les métriques de performance.
+  - Définitions des colonnes et variables utilisées dans les fichiers TXT.
+  - Procédures standard de collecte et d’interprétation des données.
+  - Recommandations sur l’utilisation des outils APM et sur la maintenance.
+- **Utilité dans le pipeline :**
+  - Sert de guide pour comprendre la signification des données brutes.
+  - Permet de contextualiser les résultats (ex. interprétation correcte d’un delta fuel flow).
+  - Aide à configurer correctement les mappings et validations dans `schemas.py`.
+  - Document de référence pour l’équipe afin d’assurer cohérence et conformité avec les standards APM.
+
+---
+
+## Résumé
+- **`Boeing_Perf_Data.txt`** → Données brutes de performance (mesures techniques).  
+- **`FHMRB.xlsx`** → Événements de maintenance (interventions, inspections).  
+- **`APM_User_Manual.pdf`** → Manuel utilisateur APM, guide théorique et pratique pour interpréter les données et assurer cohérence.  
+
+Ces trois documents sont complémentaires : le TXT fournit les mesures, l’Excel fournit les événements, et le PDF fournit le cadre théorique et méthodologique pour analyser et interpréter correctement les résultats.
+
 
 
