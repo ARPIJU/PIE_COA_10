@@ -18,14 +18,3 @@ class DataCleaner:
             if m in df.columns:
                 df[f"{m}_isna"] = df[m].isna()
         return df
-
-    def build_timestamp(self, df: pd.DataFrame, date_col="date", time_col="time") -> pd.DataFrame:
-        """
-        Construit une colonne 'timestamp' à partir de 'date' + 'time'.
-        """
-        if date_col in df.columns and time_col in df.columns:
-            df["timestamp"] = pd.to_datetime(
-                df[date_col].astype(str) + " " + df[time_col].astype(str),
-                errors="coerce"
-            )
-        return df
