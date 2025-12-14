@@ -1,4 +1,3 @@
-# main.py
 from pathlib import Path
 import json
 import logging
@@ -8,7 +7,6 @@ from classes.utils.logging_conf import setup_logging
 from classes.io.data_loader import DataLoader
 from classes.io.schemas import DataSchema
 from classes.processing.cleaning import DataCleaner
-from classes.processing.feature_engineering import FeatureEngineer
 from classes.domain.apm_models import APMModels
 from classes.domain.maintenance import MaintenanceCatalog
 from classes.analysis.impact_analysis import ImpactAnalyzer
@@ -40,7 +38,7 @@ def run_pipeline():
     events_df, sheet_used = loader.load_first_available_events()
     logger.info("Events loaded from sheet: %s", sheet_used)
 
-    # ✅ Correction : ajouter la colonne tail_number aux événements
+    # ✅ Ajout de la colonne tail_number aux événements
     events_df["tail_number"] = sheet_used
 
     schema = DataSchema(settings)
@@ -120,23 +118,22 @@ def run_pipeline():
         default_delta_from_metric="delta_fuel_flow"
     )
 
+    # ✅ Export forcé + warnings si vide
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     reporter = Reporter(OUTPUTS_DIR)
 
     logger.info("Deltas (fuel_flow) before/after:")
-    if not deltas_ff.empty:
-        reporter.summary_tables(deltas_ff, sort_col="delta_fuel")
-    else:
+    if deltas_ff.empty:
         logger.warning("No deltas computed; check event alignment or metrics availability.")
+    reporter.summary_tables(deltas_ff, sort_col="delta_fuel")
 
     logger.info("Plotting fuel_flow timeline with event markers.")
     reporter.plot_metric(merged, metric="fuel_flow", event_col="event")
 
     logger.info("Proposed maintenance plan:")
-    if not plan.empty:
-        reporter.export_csv(plan, filename="maintenance_plan.csv")
-    else:
+    if plan.empty:
         logger.warning("No positive ROI events selected under constraints.")
+    reporter.export_csv(plan, filename="maintenance_plan.csv")
 
     logger.info("Pipeline completed.")
 
