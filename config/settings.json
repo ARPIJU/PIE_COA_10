@@ -13,20 +13,20 @@
   },
   "columns_mapping": {
     "txt": {
-      "Date Recorded ()": "date",
-      "Time": "time",
-      "Airplane ID ()": "tail_number",
-      "FF Total": "fuel_flow",
-      "Fuel Mileage (FM)": "perf_factor",
-      "Mach": "mach",
-      "TAT (°C)": "oat",
-      "Flt Level": "altitude"
+      "date_recorded_()": "date",
+      "time": "time",
+      "airplane_id_()": "tail_number",
+      "ff_total": "fuel_flow",
+      "fuel_mileage_(fm)": "perf_factor",
+      "mach": "mach",
+      "tat_(°c)": "oat",
+      "flt_level": "altitude"
     },
     "excel_events": {
-      "Date": "date",
-      "Event": "event",
-      "Remarks": "remarks",
-      "Update ?": "update_flag"
+      "date": "date",
+      "event": "event",
+      "remarks": "remarks",
+      "update_?": "update_flag"
     }
   },
   "apm": {
