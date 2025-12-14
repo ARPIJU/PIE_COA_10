@@ -48,14 +48,15 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    # Debug: inspect columns after mapping
+    # 🔍 Debug: inspect columns after mapping
     print("Colonnes après mapping:", df_txt.columns.tolist())
     print(df_txt.head(3))
 
     # 3) Cleaning and basic quality flags
     cleaner = DataCleaner()
-    # Build timestamp from date + time
-    df_txt = cleaner.build_timestamp(df_txt, date_col="date", time_col="time")
+    # Build timestamp only from date (since no time column exists)
+    if "date" in df_txt.columns:
+        df_txt["timestamp"] = pd.to_datetime(df_txt["date"], errors="coerce")
 
     df_txt = cleaner.fix_timestamps(df_txt)
     df_txt = cleaner.remove_duplicates(df_txt)
