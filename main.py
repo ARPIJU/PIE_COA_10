@@ -57,6 +57,7 @@ def run_pipeline():
     df_txt = cleaner.fix_timestamps(df_txt)
     df_txt = cleaner.remove_duplicates(df_txt)
     df_txt = cleaner.flag_quality(df_txt)
+    df_txt = cleaner.clean_numeric_columns(df_txt)
 
     if "timestamp" in df_txt.columns:
         df_txt = df_txt.dropna(subset=["timestamp"])
