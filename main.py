@@ -6,14 +6,22 @@ import pandas as pd
 
 from classes.utils.logging_conf import setup_logging
 from classes.io.data_loader import DataLoader
+from classes.io.schemas import DataSchema
+from classes.processing.cleaning import DataCleaner
+from classes.processing.feature_engineering import FeatureEngineer
+from classes.domain.apm_models import APMModels
+from classes.domain.maintenance import MaintenanceCatalog
+from classes.analysis.impact_analysis import ImpactAnalyzer
+from classes.analysis.reporting import Reporter
+from classes.optimization.scheduler import MaintenanceScheduler
 
 
 BASE = Path(__file__).resolve().parent
 SETTINGS_PATH = BASE / "config" / "settings.json"
+OUTPUTS_DIR = BASE / "outputs"
 
 
 def run_pipeline():
-    # 0) Settings + logging
     if not SETTINGS_PATH.exists():
         raise FileNotFoundError(f"Settings file not found: {SETTINGS_PATH}")
     with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
@@ -23,23 +31,18 @@ def run_pipeline():
     logger = logging.getLogger("main")
     logger.info("Starting pipeline")
 
-    # 1) Load data with debug
     loader = DataLoader(BASE, SETTINGS_PATH)
-    df_txt = loader.load_boeing_txt(debug=True)
+    df_txt = loader.load_boeing_txt()
     if df_txt is None or df_txt.empty:
         logger.error("Boeing_Perf_Data.txt not loaded or empty. Aborting.")
         return
 
-    # Debug: afficher colonnes et premières lignes
-    print("\n=== DEBUG FINAL ===")
-    print("Colonnes après lecture:", df_txt.columns.tolist())
-    print("\nPremières lignes du TXT (10x10):")
-    print(df_txt.iloc[:10, :10])
-    print("=== FIN DEBUG ===\n")
+    events_df, sheet_used = loader.load_first_available_events()
+    logger.info("Events loaded from sheet: %s", sheet_used)
 
-    # Stop here: on ne lance pas la suite du pipeline tant que le mapping n’est pas corrigé
-    return
+    schema = DataSchema(settings)
+    df_txt = schema.standardize_columns(df_txt)
+    df_txt = schema.apply_mapping_txt(df_txt)
+    schema.validate_txt(df_txt)
 
-
-if __name__ == "__main__":
-    run_pipeline()
+    print("Colonnes après mapping:", df_txt.columns
