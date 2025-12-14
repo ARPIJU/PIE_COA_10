@@ -1,3 +1,4 @@
+# main.py
 from pathlib import Path
 import json
 import logging
@@ -47,10 +48,6 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    # Parse and coerce date columns for TXT
-    if "timestamp" in df_txt.columns:
-        df_txt["timestamp"] = pd.to_datetime(df_txt["timestamp"], errors="coerce")
-
     # Events schema and types
     events_df = schema.standardize_columns(events_df)
     events_df = schema.apply_mapping_events(events_df)
@@ -61,6 +58,9 @@ def run_pipeline():
 
     # 3) Cleaning and basic quality flags
     cleaner = DataCleaner()
+    # Construire timestamp à partir de date + time
+    df_txt = cleaner.build_timestamp(df_txt, date_col="date", time_col="time")
+
     df_txt = cleaner.fix_timestamps(df_txt)
     df_txt = cleaner.remove_duplicates(df_txt)
     df_txt = cleaner.flag_quality(df_txt)
@@ -161,4 +161,3 @@ def run_pipeline():
 
 if __name__ == "__main__":
     run_pipeline()
-
