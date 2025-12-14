@@ -41,7 +41,7 @@
     "before_after_window_days": 14
   },
   "economics": {
-    "fuel_price_per_unit": 0.8,
+    "fuel_price_per_unit": 9.8,
     "catalog": [
       {
         "name": "LH engine wash",
