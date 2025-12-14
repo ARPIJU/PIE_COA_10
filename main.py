@@ -63,14 +63,14 @@ def run_pipeline():
     events_df = schema.apply_mapping_events(events_df)
     schema.validate_events(events_df)
 
-    if "event_date" in events_df.columns:
-        events_df["event_date"] = pd.to_datetime(events_df["event_date"], errors="coerce")
+    if "date" in events_df.columns:
+        events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
 
     # Tri obligatoire pour merge_asof
     if "timestamp" in df_txt.columns:
-        df_txt = df_txt.sort_values("timestamp")
-    if "event_date" in events_df.columns:
-        events_df = events_df.sort_values("event_date")
+        df_txt = df_txt.sort_values("timestamp").reset_index(drop=True)
+    if "date" in events_df.columns:
+        events_df = events_df.sort_values("date").reset_index(drop=True)
 
     # 4) Feature engineering
     fe = FeatureEngineer()
@@ -102,7 +102,7 @@ def run_pipeline():
         events=events_df,
         by=("tail_number",),
         left_on="timestamp",
-        right_on="event_date",
+        right_on="date",
         tolerance_days=tol_days
     )
 
