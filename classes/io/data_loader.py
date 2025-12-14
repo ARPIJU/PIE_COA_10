@@ -25,19 +25,17 @@ class DataLoader:
         enc = self.settings["txt_read"]["encoding"]
         fallback_enc = self.settings["txt_read"]["fallback_encoding"]
         seps = self.settings["txt_read"]["possible_separators"]
-        parse_dates = self.settings["txt_read"]["parse_dates"]
-        dayfirst = self.settings["txt_read"]["dayfirst"]
+        skip_rows = self.settings["txt_read"].get("skip_rows", 0)
 
-        # Try auto-sep
+        df = None
         try:
-            df = pd.read_csv(txt_file, sep=None, engine="python", encoding=enc)
+            df = pd.read_csv(txt_file, sep=None, engine="python", encoding=enc, skiprows=skip_rows)
             logger.info("Loaded TXT with sep=None and encoding=%s", enc)
         except Exception as e:
             logger.warning("Auto-sep failed: %s. Trying candidates...", e)
-            df = None
             for s in seps:
                 try:
-                    df = pd.read_csv(txt_file, sep=s, engine="python", encoding=enc)
+                    df = pd.read_csv(txt_file, sep=s, engine="python", encoding=enc, skiprows=skip_rows)
                     logger.info("Loaded TXT with sep='%s'", s)
                     break
                 except Exception as e2:
@@ -46,23 +44,19 @@ class DataLoader:
                 logger.warning("Trying fallback encoding=%s", fallback_enc)
                 for s in seps:
                     try:
-                        df = pd.read_csv(txt_file, sep=s, engine="python", encoding=fallback_enc)
+                        df = pd.read_csv(txt_file, sep=s, engine="python", encoding=fallback_enc, skiprows=skip_rows)
                         logger.info("Loaded TXT with sep='%s' and fallback encoding", s)
                         break
                     except Exception as e3:
                         logger.debug("Fallback failed sep='%s': %s", s, e3)
-        # Parse dates if present
-        if df is not None:
-            for col in parse_dates:
-                if col in df.columns:
-                    df[col] = pd.to_datetime(df[col], errors="coerce", dayfirst=dayfirst)
+
         return df
 
     def load_excel_sheet(self, sheet_name: str) -> pd.DataFrame:
         excel_path = self.get_data_dir() / self.settings["paths"]["excel_file"]
         return pd.read_excel(excel_path, sheet_name=sheet_name)
 
-    def load_first_available_events(self) -> pd.DataFrame:
+    def load_first_available_events(self) -> (pd.DataFrame, str):
         excel_path = self.get_data_dir() / self.settings["paths"]["excel_file"]
         xls = pd.ExcelFile(excel_path)
         priority = self.settings.get("excel_sheets_priority", [])
@@ -75,4 +69,3 @@ class DataLoader:
             chosen = xls.sheet_names[0]
             logger.info("Priority sheets not found. Using first sheet: %s", chosen)
         return pd.read_excel(xls, sheet_name=chosen), chosen
-
