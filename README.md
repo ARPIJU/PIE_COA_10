@@ -96,6 +96,3 @@ Il est conçu pour être **reproductible**, **transparent**, et **utile en conte
 - `constraints.budget` → budget total disponible.
 - `constraints.max_downtime_hours` → downtime maximal autorisé.
 
-### Logging
-- `logging.level` → niveau des logs (`INFO`, `DEBUG`, etc.).
-
