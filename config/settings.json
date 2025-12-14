@@ -8,9 +8,8 @@
     "encoding": "utf-8",
     "fallback_encoding": "latin-1",
     "possible_separators": [",", ";", "\t", "|"],
-    "parse_dates": ["timestamp"],
-    "dayfirst": true,
-    "skip_rows": 2
+    "skip_rows": 2,
+    "dayfirst": true
   },
   "columns_mapping": {
     "txt": {
