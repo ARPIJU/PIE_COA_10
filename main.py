@@ -48,18 +48,16 @@ def run_pipeline():
     df_txt = schema.apply_mapping_txt(df_txt)
     schema.validate_txt(df_txt)
 
-    # Debug
     print("Colonnes après mapping:", df_txt.columns.tolist())
     print(df_txt.head(3))
 
     # 3) Cleaning
     cleaner = DataCleaner()
-    df_txt = cleaner.build_timestamp(df_txt, date_col="date", time_col="time")
+    df_txt = cleaner.build_timestamp(df_txt, date_col="recorded_date", time_col="time")
     df_txt = cleaner.fix_timestamps(df_txt)
     df_txt = cleaner.remove_duplicates(df_txt)
     df_txt = cleaner.flag_quality(df_txt)
 
-    # Drop rows without timestamp to avoid merge errors
     if "timestamp" in df_txt.columns:
         df_txt = df_txt.dropna(subset=["timestamp"])
 
@@ -68,8 +66,8 @@ def run_pipeline():
     events_df = schema.apply_mapping_events(events_df)
     schema.validate_events(events_df)
 
-    if "date" in events_df.columns:
-        events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
+    if "event_date" in events_df.columns:
+        events_df["event_date"] = pd.to_datetime(events_df["event_date"], errors="coerce")
 
     # 4) Feature engineering
     fe = FeatureEngineer()
@@ -101,7 +99,7 @@ def run_pipeline():
         events=events_df,
         by=("tail_number",),
         left_on="timestamp",
-        right_on="date",
+        right_on="event_date",
         tolerance_days=tol_days
     )
 
