@@ -30,36 +30,6 @@ Il est conçu pour être **reproductible**, **transparent**, et **utile en conte
 
 ---
 
-## Logique du pipeline
-
-1. **Chargement des données**
-   - Lecture du fichier TXT de mesures (fuel flow, etc.).
-   - Lecture des événements de maintenance.
-
-2. **Standardisation & nettoyage**
-   - Harmonisation des colonnes via `schemas.py`.
-   - Construction et correction des timestamps.
-   - Suppression des doublons et nettoyage des colonnes numériques.
-
-3. **Alignement événements ↔ mesures**
-   - `merge_asof` avec tolérance (`merge_tolerance_days`).
-   - Association des événements aux mesures les plus proches.
-
-4. **Calcul des impacts**
-   - Moyenne du fuel flow avant/après chaque événement (`before_after_window_days`).
-   - Export des deltas dans `impact_summary.csv`.
-
-5. **Optimisation économique**
-   - Conversion des deltas en économies monétaires selon `fuel_price_per_unit`.
-   - Sélection des interventions rentables sous contraintes (`budget`, `max_downtime_hours`).
-   - Export du plan dans `maintenance_plan.csv`.
-
-6. **Reporting**
-   - Export systématique des trois fichiers (CSV + PNG).
-   - Warnings dans les logs si aucun delta ou plan rentable.
-
----
-
 ## Outputs détaillés
 
 ### `impact_summary.csv`
