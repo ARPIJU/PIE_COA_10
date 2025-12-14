@@ -19,7 +19,7 @@ class DataCleaner:
                 df[f"{m}_isna"] = df[m].isna()
         return df
 
-    def build_timestamp(self, df: pd.DataFrame, date_col="date", time_col="time") -> pd.DataFrame:
+    def build_timestamp(self, df: pd.DataFrame, date_col="recorded_date", time_col="time") -> pd.DataFrame:
         if date_col in df.columns and time_col in df.columns:
             df["timestamp"] = pd.to_datetime(
                 df[date_col].astype(str) + " " + df[time_col].astype(str),
@@ -28,7 +28,6 @@ class DataCleaner:
             )
         elif date_col in df.columns:
             df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
-        # Supprimer les lignes sans timestamp valide
         if "timestamp" in df.columns:
             df = df.dropna(subset=["timestamp"])
         return df
