@@ -2,7 +2,7 @@
   "paths": {
     "data_dir": "data",
     "txt_file": "Boeing_Perf_Data.txt",
-    "excel_file": "CMA-FORM-FOE-10.xlsx"
+    "excel_file": "CMA-FORM-FOE-10 (Perf Factor - Fuel Flow factor Record).xlsx"
   },
   "txt_read": {
     "encoding": "utf-8",
