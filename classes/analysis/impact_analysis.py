@@ -3,7 +3,7 @@ import numpy as np
 from typing import Dict, List
 from classes.analysis.event_types import EventTypeConfig
 
-
+#test psuh
 def build_event_intervals(events_df: pd.DataFrame) -> pd.DataFrame:
     """
     Construit les intervalles [event_i, event_{i+1}) avec références au précédent,
