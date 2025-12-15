@@ -9,6 +9,7 @@ def detect_separator(sample_path: str, possible_separators):
             return sep
     return ","  # défaut
 
+
 def load_events(filepath: str, sheet_priority: list, ignore_sheets: list = None) -> pd.DataFrame:
     """Charge les événements depuis l’Excel CMA-FORM-FOE-10."""
     xls = pd.ExcelFile(filepath)
@@ -48,6 +49,7 @@ def load_events(filepath: str, sheet_priority: list, ignore_sheets: list = None)
     df = df.sort_values("date").reset_index(drop=True)
     return df
 
+
 def parse_recorded_date(val):
     """Essaye plusieurs formats pour parser les dates du TXT."""
     if pd.isna(val):
@@ -62,31 +64,26 @@ def parse_recorded_date(val):
         pass
     return pd.NaT
 
+
 def load_txt_series(filepath: str, txt_read: dict, columns_mapping: dict) -> pd.DataFrame:
-    """Charge le TXT avec mapping et construit timestamp."""
+    """Charge le TXT avec mapping et construit timestamp, sans debug prints."""
     encoding = txt_read.get("encoding", "utf-8")
     fallback = txt_read.get("fallback_encoding", "latin-1")
     skip_rows = int(txt_read.get("skip_rows", 5))
     possible_separators = txt_read.get("possible_separators", [",", ";", "\t", "|"])
 
     sep = detect_separator(filepath, possible_separators)
-    print(f"[DEBUG] Séparateur détecté: {repr(sep)}")
 
     try:
         df = pd.read_csv(filepath, sep=sep, skiprows=skip_rows, encoding=encoding)
     except UnicodeDecodeError:
         df = pd.read_csv(filepath, sep=sep, skiprows=skip_rows, encoding=fallback)
 
-    print("[DEBUG] Colonnes brutes du TXT:", list(df.columns))
-    print("[DEBUG] Aperçu des 5 premières lignes:\n", df.head())
-
     # Appliquer le mapping fourni
     txt_map = columns_mapping.get("txt", {})
     for src, dst in txt_map.items():
         if src in df.columns:
             df = df.rename(columns={src: dst})
-
-    print("[DEBUG] Colonnes après mapping:", list(df.columns))
 
     if "recorded_date" not in df.columns:
         raise ValueError("Colonne 'recorded_date' manquante après mapping.")
@@ -106,11 +103,6 @@ def load_txt_series(filepath: str, txt_read: dict, columns_mapping: dict) -> pd.
 
     # Forcer fuel_flow en numérique
     df["fuel_flow"] = pd.to_numeric(df["fuel_flow"], errors="coerce")
-
-    print("Valid dates:", df["recorded_date"].notna().sum())
-    print("Invalid dates:", df["recorded_date"].isna().sum())
-    print("fuel_flow non nuls:", df["fuel_flow"].notna().sum())
-    print("timestamp non nuls:", df["timestamp"].notna().sum())
 
     df = df.dropna(subset=["timestamp", "fuel_flow"]).copy()
     df = df.sort_values("timestamp").reset_index(drop=True)
