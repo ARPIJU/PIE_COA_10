@@ -1,1 +1,4 @@
-
+event_date,event_name,tail_number,metric,delta_t,impact_model,impact_observed,rate_mean_type,rate_std_type,rate_n_type,rate_source
+2024-09-05,LH engine wash,FHMRB,perf_factor,364.0,-0.002139999999999996,-0.002139999999999996,-5.879120879120868e-06,,1,type_rate
+2024-10-03,RH engine wash,FHMRB,perf_factor,364.0,-0.004841666666666668,-0.004841666666666668,-1.3301282051282055e-05,,1,type_rate
+2024-10-31,LH engine wash,FHMRB,perf_factor,56.0,-0.0003292307692307686,,-5.879120879120868e-06,,1,type_rate

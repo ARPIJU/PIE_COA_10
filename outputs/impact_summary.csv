@@ -1,2 +1,2 @@
 n_intervals_valid,drift_rate_mean,drift_rate_std,maintenance_types_covered,avg_rate_mean_across_types,n_modeled_events,impact_model_mean,impact_model_std,n_fallback_drift
-0,,,0,,0,,,0
+12,-0.001304142114818635,0.004020814656946754,2,-9.590201465201462e-06,3,-0.0024369658119658107,0.0022708282524718636,0

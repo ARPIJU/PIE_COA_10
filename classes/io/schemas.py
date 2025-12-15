@@ -14,8 +14,6 @@ class DataSchema:
         return df
 
     def apply_mapping_txt(self, df: pd.DataFrame) -> pd.DataFrame:
-        # Map various possible source column names to canonical names
-        # Only rename if the source key exists in df
         canon = {}
         for src, dst in self.txt_map.items():
             if src in df.columns:
@@ -40,14 +38,20 @@ class DataSchema:
         return df
 
     def validate_txt(self, df: pd.DataFrame) -> None:
-        required = set(self.txt_map.values())
+        # Colonnes critiques seulement
+        required = {"recorded_date", "fuel_flow"}
         missing = [c for c in required if c not in df.columns]
         if missing:
-            logger.warning("TXT missing canonical columns: %s", missing)
+            logger.error("TXT missing critical columns: %s", missing)
+            raise ValueError(f"TXT missing critical columns: {missing}")
+        else:
+            logger.info("TXT validation OK, colonnes critiques présentes.")
 
     def validate_events(self, df: pd.DataFrame) -> None:
-        required = ["date", "event"]
+        required = {"date", "event"}
         missing = [c for c in required if c not in df.columns]
         if missing:
-            logger.warning("Events missing canonical columns: %s", missing)
-
+            logger.error("Events missing critical columns: %s", missing)
+            raise ValueError(f"Events missing critical columns: {missing}")
+        else:
+            logger.info("Events validation OK, colonnes critiques présentes.")
