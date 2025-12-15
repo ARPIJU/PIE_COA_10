@@ -1,5 +1,13 @@
 # PIE COA 10
 
+---
+# A FAIRE
+- Trouver un moyen d'optimiser en temps glissant les opérations de maintenance + Se renseigner sur les vrais coups de maintenance. (1 Personnes)
+- Moyenner sur tous les avions et proposer un choix de l'avion sur lequel travailler. (1 personne)
+- Faire un README complet avec une explication du code. (1 personne)
+
+---
+
 ## Introduction
 Ce projet vise à analyser l’impact des événements de maintenance sur la consommation de carburant et à proposer un plan optimisé selon des contraintes économiques.  
 Il est conçu pour être **reproductible**, **transparent**, et **utile en contexte opérationnel**.
