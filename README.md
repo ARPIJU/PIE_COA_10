@@ -3,7 +3,7 @@
 ---
 # A FAIRE
 - Trouver un moyen d'optimiser en temps glissant les opérations de maintenance + Se renseigner sur les vrais coups de maintenance. (2 Personnes)
-- Moyenner sur tous les avions et proposer un choix de l'avion sur lequel travailler. (1 personne)
+- Moyenner sur tous les avions et proposer un choix de l'avion sur lequel travailler. (1 personne) Cette personne a pour unique but de faire le lien entre performances et évent de maintenance.
 - Faire un README complet avec une explication du code. (1 personne)
 
 ---
