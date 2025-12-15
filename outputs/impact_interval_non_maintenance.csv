@@ -1,0 +1,22 @@
+event_idx,event_date,next_event_date,event_name,prev_event_date,tail_number,metric,baseline_before,mean_after,drift_rate,n_points_prev,n_points_curr,valid
+0,2023-09-07,2023-10-05,LH engine wash,,FHMRB,perf_factor,,,,0,0,False
+1,2023-10-05,2023-11-02,RH engine wash,2023-09-07,FHMRB,perf_factor,,,,0,0,False
+2,2023-11-02,2023-11-30,Dual engine wash,2023-10-05,FHMRB,perf_factor,,,,0,0,False
+3,2023-11-30,2024-08-08,RH engine  + Airframe wash,2023-11-02,FHMRB,perf_factor,,,,0,0,False
+4,2024-08-08,2024-09-05,New line maintenance provider,2023-11-30,FHMRB,perf_factor,,,,0,0,False
+5,2024-09-05,2024-10-03,LH engine wash,2024-08-08,FHMRB,perf_factor,,,,0,0,False
+6,2024-10-03,2024-10-31,RH engine wash,2024-09-05,FHMRB,perf_factor,,,,0,0,False
+7,2024-10-31,2024-11-28,LH engine wash,2024-10-03,FHMRB,perf_factor,,,,0,0,False
+8,2024-11-28,2024-12-26,nan,2024-10-31,FHMRB,perf_factor,,,,0,0,False
+9,2024-12-26,2025-01-23,nan,2024-11-28,FHMRB,perf_factor,,,,0,0,False
+10,2025-01-23,2025-02-20,nan,2024-12-26,FHMRB,perf_factor,,,,0,0,False
+11,2025-02-20,2025-03-20,nan,2025-01-23,FHMRB,perf_factor,,,,0,0,False
+12,2025-03-20,2025-04-17,nan,2025-02-20,FHMRB,perf_factor,,,,0,0,False
+13,2025-04-17,2025-05-15,nan,2025-03-20,FHMRB,perf_factor,,,,0,0,False
+14,2025-05-15,2025-06-12,nan,2025-04-17,FHMRB,perf_factor,,,,0,0,False
+15,2025-06-12,2025-07-10,nan,2025-05-15,FHMRB,perf_factor,,,,0,0,False
+16,2025-07-10,2025-08-07,nan,2025-06-12,FHMRB,perf_factor,,,,0,0,False
+17,2025-08-07,2025-09-04,nan,2025-07-10,FHMRB,perf_factor,,,,0,0,False
+18,2025-09-04,2025-10-02,nan,2025-08-07,FHMRB,perf_factor,,,,0,0,False
+19,2025-10-02,2025-10-30,nan,2025-09-04,FHMRB,perf_factor,,,,0,0,False
+20,2025-10-30,2025-11-27,nan,2025-10-02,FHMRB,perf_factor,,,,0,0,False

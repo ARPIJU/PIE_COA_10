@@ -1,71 +1,117 @@
-from pathlib import Path
-import json
-import logging
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+def detect_separator(sample_path: str, possible_separators):
+    """Détecte le séparateur probable en lisant les premières lignes du fichier TXT."""
+    with open(sample_path, "r", encoding="utf-8", errors="ignore") as f:
+        head = "".join([next(f) for _ in range(10)])
+    for sep in possible_separators:
+        if sep in head:
+            return sep
+    return ","  # défaut
 
-class DataLoader:
-    def __init__(self, base_path: Path, settings_path: Path):
-        self.base_path = Path(base_path)
-        self.settings_path = Path(settings_path)
-        self.settings = self._load_settings()
+def load_events(filepath: str, sheet_priority: list, ignore_sheets: list = None) -> pd.DataFrame:
+    """Charge les événements depuis l’Excel CMA-FORM-FOE-10."""
+    xls = pd.ExcelFile(filepath)
+    available = xls.sheet_names
 
-    def _load_settings(self) -> dict:
-        with open(self.settings_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    ignore_sheets = ignore_sheets or []
+    target_sheet = None
+    for s in sheet_priority:
+        if s in available and s not in ignore_sheets:
+            target_sheet = s
+            break
+    if target_sheet is None:
+        raise ValueError(f"Aucune feuille cible trouvée parmi {sheet_priority}, disponibles={available}")
 
-    def get_data_dir(self) -> Path:
-        return self.base_path / self.settings["paths"]["data_dir"]
+    df = pd.read_excel(filepath, sheet_name=target_sheet)
 
-    def load_boeing_txt(self) -> pd.DataFrame:
-        data_dir = self.get_data_dir()
-        txt_file = data_dir / self.settings["paths"]["txt_file"]
+    rename_map = {}
+    for col in df.columns:
+        lc = str(col).strip().lower()
+        if lc == "date":
+            rename_map[col] = "date"
+        elif lc == "event":
+            rename_map[col] = "event"
+        elif lc == "remarks":
+            rename_map[col] = "remarks"
+        elif lc in ("update ?", "update_?"):
+            rename_map[col] = "update_flag"
+    df = df.rename(columns=rename_map)
 
-        enc = self.settings["txt_read"]["encoding"]
-        fallback_enc = self.settings["txt_read"]["fallback_encoding"]
-        seps = self.settings["txt_read"]["possible_separators"]
-        skip_rows = self.settings["txt_read"].get("skip_rows", 0)
+    if "date" not in df.columns:
+        raise ValueError("Colonne 'date' manquante dans la feuille d'événements.")
+    if "event" not in df.columns:
+        df["event"] = ""
 
-        df = None
-        try:
-            df = pd.read_csv(txt_file, sep=None, engine="python", encoding=enc, skiprows=skip_rows)
-            logger.info("Loaded TXT with sep=None and encoding=%s, skiprows=%s", enc, skip_rows)
-        except Exception as e:
-            logger.warning("Auto-sep failed: %s. Trying candidates...", e)
-            for s in seps:
-                try:
-                    df = pd.read_csv(txt_file, sep=s, engine="python", encoding=enc, skiprows=skip_rows)
-                    logger.info("Loaded TXT with sep='%s'", s)
-                    break
-                except Exception as e2:
-                    logger.debug("Failed with sep='%s': %s", s, e2)
-            if df is None:
-                logger.warning("Trying fallback encoding=%s", fallback_enc)
-                for s in seps:
-                    try:
-                        df = pd.read_csv(txt_file, sep=s, engine="python", encoding=fallback_enc, skiprows=skip_rows)
-                        logger.info("Loaded TXT with sep='%s' and fallback encoding", s)
-                        break
-                    except Exception as e3:
-                        logger.debug("Fallback failed sep='%s': %s", s, e3)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"]).copy()
+    df = df.sort_values("date").reset_index(drop=True)
+    return df
 
-        return df
+def parse_recorded_date(val):
+    """Essaye plusieurs formats pour parser les dates du TXT."""
+    if pd.isna(val):
+        return pd.NaT
+    try:
+        return pd.to_datetime(val, format="%Y/%m/%d", errors="coerce")
+    except Exception:
+        pass
+    try:
+        return pd.to_datetime(val, format="%Y/%d/%m", errors="coerce")
+    except Exception:
+        pass
+    return pd.NaT
 
-    def load_excel_sheet(self, sheet_name: str) -> pd.DataFrame:
-        excel_path = self.get_data_dir() / self.settings["paths"]["excel_file"]
-        return pd.read_excel(excel_path, sheet_name=sheet_name)
+def load_txt_series(filepath: str, txt_read: dict, columns_mapping: dict) -> pd.DataFrame:
+    """Charge le TXT avec mapping et construit timestamp."""
+    encoding = txt_read.get("encoding", "utf-8")
+    fallback = txt_read.get("fallback_encoding", "latin-1")
+    skip_rows = int(txt_read.get("skip_rows", 5))
+    possible_separators = txt_read.get("possible_separators", [",", ";", "\t", "|"])
 
-    def load_first_available_events(self) -> (pd.DataFrame, str):
-        excel_path = self.get_data_dir() / self.settings["paths"]["excel_file"]
-        xls = pd.ExcelFile(excel_path)
-        priority = self.settings.get("excel_sheets_priority", [])
-        chosen = None
-        for name in priority:
-            if name in xls.sheet_names:
-                chosen = name
-                break
-        if chosen is None:
-            chosen = xls.sheet_names[0]
-            logger.info("Priority sheets not found. Using first sheet: %s", chosen)
-        return pd.read_excel(xls, sheet_name=chosen), chosen
+    sep = detect_separator(filepath, possible_separators)
+    print(f"[DEBUG] Séparateur détecté: {repr(sep)}")
+
+    try:
+        df = pd.read_csv(filepath, sep=sep, skiprows=skip_rows, encoding=encoding)
+    except UnicodeDecodeError:
+        df = pd.read_csv(filepath, sep=sep, skiprows=skip_rows, encoding=fallback)
+
+    print("[DEBUG] Colonnes brutes du TXT:", list(df.columns))
+    print("[DEBUG] Aperçu des 5 premières lignes:\n", df.head())
+
+    # Appliquer le mapping fourni
+    txt_map = columns_mapping.get("txt", {})
+    for src, dst in txt_map.items():
+        if src in df.columns:
+            df = df.rename(columns={src: dst})
+
+    print("[DEBUG] Colonnes après mapping:", list(df.columns))
+
+    if "recorded_date" not in df.columns:
+        raise ValueError("Colonne 'recorded_date' manquante après mapping.")
+
+    df["recorded_date"] = df["recorded_date"].apply(parse_recorded_date)
+
+    if "time" in df.columns and df["time"].notna().any():
+        df["timestamp"] = pd.to_datetime(
+            df["recorded_date"].dt.strftime("%Y-%m-%d") + " " + df["time"].astype(str),
+            errors="coerce"
+        )
+    else:
+        df["timestamp"] = df["recorded_date"]
+
+    if "fuel_flow" not in df.columns:
+        raise ValueError("Colonne 'fuel_flow' manquante après mapping.")
+
+    # Forcer fuel_flow en numérique
+    df["fuel_flow"] = pd.to_numeric(df["fuel_flow"], errors="coerce")
+
+    print("Valid dates:", df["recorded_date"].notna().sum())
+    print("Invalid dates:", df["recorded_date"].isna().sum())
+    print("fuel_flow non nuls:", df["fuel_flow"].notna().sum())
+    print("timestamp non nuls:", df["timestamp"].notna().sum())
+
+    df = df.dropna(subset=["timestamp", "fuel_flow"]).copy()
+    df = df.sort_values("timestamp").reset_index(drop=True)
+    return df
