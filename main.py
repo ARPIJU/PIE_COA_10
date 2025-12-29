@@ -21,7 +21,7 @@ from classes.analysis.impact_analysis import (
     summarize_global
 )
 
-#test push anatole
+#test push anatole bis
 
 BASE = Path(__file__).resolve().parent
 SETTINGS_PATH = BASE / "config" / "settings.json"
