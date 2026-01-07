@@ -249,16 +249,16 @@ Ces trois documents sont complémentaires : le TXT fournit les mesures, l’Exce
 
 ## 1. Main.py
 
-Scripts utilisés : 
-classes.utils.logging_conf
-classes.io.data_loader
-classes.io.schemas 
-classes.processing.cleaning 
-classes.domain.apm_models 
-classes.domain.maintenance 
-classes.analysis.reporting 
-classes.optimization.scheduler
-classes.analysis.impact_analysis
+Scripts utilisés :  
+classes.utils.logging_conf  
+classes.io.data_loader  
+classes.io.schemas  
+classes.processing.cleaning  
+classes.domain.apm_models  
+classes.domain.maintenance  
+classes.analysis.reporting  
+classes.optimization.scheduler  
+classes.analysis.impact_analysis  
 
 
 
@@ -464,6 +464,7 @@ Calcul de durées entre deux dates.
 # 3. Config
 
 - 3.1 settings.json
+- Ce fichier comporte tous les paramètres d'entrée du problème.
 
 ---
 
