@@ -267,12 +267,12 @@ classes.analysis.impact_analysis
 # 2. Classes
 
 ## 2.1 analysis
-### event_types.py
+### 2.1.1 event_types.py
 Ce script centralise les types d’évènements autorisés pour l’estimation d’impact de maintenance.
 
 ---
 
-### impact_analysis.py
+### 2.1.2 impact_analysis.py
 
 **Script utilisé :**
 - classes.analysis.event_types
@@ -353,16 +353,16 @@ Produit une synthèse globale :
 
 ---
 
-### reporting.py
+### 2.1.3 reporting.py
 Définit une classe Reporter permettant de créer proprement :
 - impact_summary.csv
 - maintenance_plan.csv
 
 ---
 
-## domain
+## 2.2 domain
 
-### apm_models.py
+### 2.2.1 apm_models.py
 Classe APMModels :
 
 - Charger des paramètres depuis un fichier de settings  
@@ -372,7 +372,7 @@ Classe APMModels :
 
 ---
 
-### maintenance.py
+### 2.2.2 maintenance.py
 Ce script sert à :
 
 - Définir un type de maintenance (nom, coût, downtime, impact attendu)
@@ -383,9 +383,9 @@ Brique métier utilisée par l’optimiseur.
 
 ---
 
-## io
+## 2.3 io
 
-### data_loader.py
+### 2.3.1 data_loader.py
 Fonctionnalités :
 
 - Détecte automatiquement le séparateur d’un TXT  
@@ -399,7 +399,7 @@ Fonctionnalités :
 
 ---
 
-### schemas.py
+### 2.3.2 schemas.py
 Classe DataSchema :
 
 - Standardise les noms de colonnes  
@@ -411,9 +411,9 @@ Garantit un dataframe propre et cohérent.
 
 ---
 
-## optimization
+## 2.4 optimization
 
-### scheduler.py
+### 2.4.1 scheduler.py
 Classe MaintenanceScheduler :
 
 - Charge un catalogue de maintenances  
@@ -430,9 +430,9 @@ Sélection si :
 
 ---
 
-## processing
+## 2.5 processing
 
-### cleaning.py
+### 2.5.1 cleaning.py
 Classe DataCleaner :
 
 - Vérifie la plausibilité des timestamps  
@@ -443,7 +443,7 @@ Classe DataCleaner :
 
 ---
 
-### feature_engineering.py
+### 2.5.2 feature_engineering.py
 Classe FeatureEngineer :
 
 - Crée une baseline roulante  
@@ -451,46 +451,46 @@ Classe FeatureEngineer :
 
 ---
 
-## utils
+## 2.6 utils
 
-### logging_conf.py
+### 2.6.1 logging_conf.py
 Format de logs homogène.
 
-### time_windows.py
+### 2.6.2 time_windows.py
 Calcul de durées entre deux dates.
 
 ---
 
-# Config
+# 3. Config
 
-- settings.json
-
----
-
-# Data
-
-- APM_User_Manual.pdf  
-- Boeing_Perf_Data.txt  
-- CMA-FORM-FOE-10.xlsx  
+- 3.1 settings.json
 
 ---
 
-# Notebooks
+# 4. Data
 
-- clone_project.ipynb  
-- exploration.ipynb  
-- test_main.ipynb  
+- 4.1 APM_User_Manual.pdf  
+- 4.2 Boeing_Perf_Data.txt  
+- 4.3 CMA-FORM-FOE-10.xlsx  
 
 ---
 
-# Outputs
+# 5. Notebooks
 
-- fuel_flow_timeline.png  
-- impact_interval_non_maintenance.csv  
-- impact_summary.csv  
-- maintenance_impacts_modeled.csv  
-- maintenance_plan.csv  
-- maintenance_type_rates.csv  
+- 5.1 clone_project.ipynb  
+- 5.2 exploration.ipynb  
+- 5.3 test_main.ipynb  
+
+---
+
+# 6. Outputs
+
+- 6.1 fuel_flow_timeline.png  
+- 6.2 impact_interval_non_maintenance.csv  
+- 6.3 impact_summary.csv  
+- 6.4 maintenance_impacts_modeled.csv  
+- 6.5 maintenance_plan.csv  
+- 6.6 maintenance_type_rates.csv  
 
 
 
