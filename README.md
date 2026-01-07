@@ -249,12 +249,24 @@ Ces trois documents sont complémentaires : le TXT fournit les mesures, l’Exce
 
 ## 1. Main.py
 
+Scripts utilisés : 
+classes.utils.logging_conf
+classes.io.data_loader
+classes.io.schemas 
+classes.processing.cleaning 
+classes.domain.apm_models 
+classes.domain.maintenance 
+classes.analysis.reporting 
+classes.optimization.scheduler
+classes.analysis.impact_analysis
+
+
+
 ---
 
 # 2. Classes
 
-- ## 2.1 analysis
-
+## 2.1 analysis
 ### event_types.py
 Ce script centralise les types d’évènements autorisés pour l’estimation d’impact de maintenance.
 
