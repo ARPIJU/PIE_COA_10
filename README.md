@@ -247,13 +247,13 @@ Ces trois documents sont complémentaires : le TXT fournit les mesures, l’Exce
 
 # Structure du projet
 
-## Main.py
+## 1. Main.py
 
 ---
 
-# Classes
+# 2. Classes
 
-## analysis
+- ## 2.1 analysis
 
 ### event_types.py
 Ce script centralise les types d’évènements autorisés pour l’estimation d’impact de maintenance.
