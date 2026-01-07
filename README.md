@@ -242,3 +242,248 @@ Ces trois documents sont complémentaires : le TXT fournit les mesures, l’Exce
 
 
 
+
+
+
+# Structure du projet
+
+## Main.py
+
+---
+
+# Classes
+
+## analysis
+
+### event_types.py
+Ce script centralise les types d’évènements autorisés pour l’estimation d’impact de maintenance.
+
+---
+
+### impact_analysis.py
+
+**Script utilisé :**
+- classes.analysis.event_types
+
+**Fonctions définies :**
+
+#### build_event_intervals
+- Transforme une liste d'événements en intervalles temporels.
+- Retourne un tableau où chaque ligne représente un intervalle entre deux maintenances pour définir les périodes d’analyse avant/après chaque maintenance.
+
+#### slice_series
+- Extrait un segment de séries temporelles entre deux dates.
+- Retourne uniquement timestamp et la métrique demandée.
+
+#### fit_drift_rate
+- Estime la pente d’une métrique dans un intervalle.
+- Mesure la dégradation progressive entre deux maintenances.
+
+#### mean_in_stabilization_window
+- Calcule la moyenne de la métrique juste après une maintenance.
+- Mesure l’effet immédiat d’une maintenance.
+
+#### compute_non_maintenance_metrics
+Calcule toutes les métriques nécessaires pour chaque intervalle :
+
+- baseline_before : moyenne avant maintenance  
+- mean_after : moyenne dans la fenêtre de stabilisation  
+- drift_rate : pente après maintenance  
+- valid : indique si l’intervalle est exploitable  
+
+Gère aussi :
+- fallback si pas d’événement précédent  
+- choix automatique de la métrique (perf_factor ou fuel_flow)
+
+Produit la table centrale de l’analyse d’impact.
+
+#### estimate_type_rates
+Estime un taux d’impact moyen par type de maintenance.
+
+Pour chaque événement valide :
+- Cherche la précédente maintenance du même type
+- Calcule : rate = (baseline_before - mean_after) / delta_t
+
+Agrégation par type :
+- moyenne  
+- écart-type  
+- nombre d’observations  
+
+Modélise l’impact typique d’une maintenance.
+
+#### compute_maintenance_impact
+Estime l’impact modélisé de chaque maintenance.
+
+Pour chaque événement :
+- Cherche la précédente maintenance du même type
+- Calcule delta_t
+
+Deux cas :
+- Taux disponible : impact_model = rate_mean * delta_t
+- Sinon fallback : impact_model = drift_rate_mean * delta_t
+
+Ajoute :
+- impact_observed  
+- source du taux (type_rate ou fallback_drift)
+
+Produit les deltas utilisés pour l’optimisation.
+
+#### summarize_global
+Produit une synthèse globale :
+
+- nombre d’intervalles valides  
+- moyenne et écart-type des dérives  
+- nombre de types couverts  
+- moyenne des taux par type  
+- nombre d’événements modélisés  
+- moyenne et écart-type des impacts modélisés  
+- nombre de fallback utilisés  
+
+---
+
+### reporting.py
+Définit une classe Reporter permettant de créer proprement :
+- impact_summary.csv
+- maintenance_plan.csv
+
+---
+
+## domain
+
+### apm_models.py
+Classe APMModels :
+
+- Charger des paramètres depuis un fichier de settings  
+- Ajouter des constantes de performance dans un DataFrame  
+- Convertir perf_factor → fuel_factor via un modèle linéaire  
+- Calculer fuel_expected_corr  
+
+---
+
+### maintenance.py
+Ce script sert à :
+
+- Définir un type de maintenance (nom, coût, downtime, impact attendu)
+- Construire un catalogue de maintenances
+- Charger automatiquement ce catalogue depuis les settings
+
+Brique métier utilisée par l’optimiseur.
+
+---
+
+## io
+
+### data_loader.py
+Fonctionnalités :
+
+- Détecte automatiquement le séparateur d’un TXT  
+- Charge proprement un Excel d’événements  
+- Charge un TXT de séries temporelles avec :  
+  - mapping des colonnes  
+  - parsing robuste des dates  
+  - construction d’un timestamp  
+  - nettoyage des valeurs manquantes  
+  - tri chronologique  
+
+---
+
+### schemas.py
+Classe DataSchema :
+
+- Standardise les noms de colonnes  
+- Applique les mappings définis dans les settings  
+- Convertit en datetime  
+- Valide les colonnes critiques  
+
+Garantit un dataframe propre et cohérent.
+
+---
+
+## optimization
+
+### scheduler.py
+Classe MaintenanceScheduler :
+
+- Charge un catalogue de maintenances  
+- Lit les deltas d’impact carburant  
+- Calcule un ROI  
+- Retourne un plan optimal (greedy) sous contraintes :  
+  - budget maximal  
+  - downtime maximal  
+
+Sélection si :
+- ROI > 0  
+- coût total ≤ budget  
+- downtime total ≤ max downtime  
+
+---
+
+## processing
+
+### cleaning.py
+Classe DataCleaner :
+
+- Vérifie la plausibilité des timestamps  
+- Supprime les doublons  
+- Ajoute des indicateurs de qualité  
+- Construit un timestamp propre  
+- Nettoie perf_factor et fuel_flow  
+
+---
+
+### feature_engineering.py
+Classe FeatureEngineer :
+
+- Crée une baseline roulante  
+- Agrégations AIRAC ou mensuelles  
+
+---
+
+## utils
+
+### logging_conf.py
+Format de logs homogène.
+
+### time_windows.py
+Calcul de durées entre deux dates.
+
+---
+
+# Config
+
+- settings.json
+
+---
+
+# Data
+
+- APM_User_Manual.pdf  
+- Boeing_Perf_Data.txt  
+- CMA-FORM-FOE-10.xlsx  
+
+---
+
+# Notebooks
+
+- clone_project.ipynb  
+- exploration.ipynb  
+- test_main.ipynb  
+
+---
+
+# Outputs
+
+- fuel_flow_timeline.png  
+- impact_interval_non_maintenance.csv  
+- impact_summary.csv  
+- maintenance_impacts_modeled.csv  
+- maintenance_plan.csv  
+- maintenance_type_rates.csv  
+
+
+
+
+
+
+
+
