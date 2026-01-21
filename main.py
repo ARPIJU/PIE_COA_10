@@ -20,13 +20,15 @@ from classes.analysis.impact_analysis import (
     compute_maintenance_impacts,
     summarize_global
 )
-
-#test push anatole bis
+from classes.processing.low_pass_filtering import (
+    generate_filter_comparison_plots,
+    apply_lowpass_filter,
+    plot_lowpass_filter_comparison
+)
 
 BASE = Path(__file__).resolve().parent
 SETTINGS_PATH = BASE / "config" / "settings.json"
 OUTPUTS_DIR = BASE / "outputs"
-
 
 def run_pipeline():
     # Charger settings
@@ -77,6 +79,53 @@ def run_pipeline():
             df_txt["timestamp"] = pd.to_datetime(df_txt["timestamp"], errors="coerce")
             df_txt = df_txt.dropna(subset=["timestamp"])
             df_txt = df_txt.sort_values("timestamp").reset_index(drop=True)
+
+        # Lire la configuration du filtre passe bas depuis settings
+        lowpass_config = settings.get("lowpass_filter", {})
+        display_graph_lowpassed_vs_original = lowpass_config.get("display_graph", False)
+
+        # 2.5) Appliquer le filtre passe bas sur %ff_dev_total_(%)
+        if "%ff_dev_total_(%)" in df_txt.columns:
+            try:
+
+                # Générer les graphiques de comparaison si demandé
+                if display_graph_lowpassed_vs_original:
+                    logger.info("Génération du graphique signal original vs filtré")
+                    generate_filter_comparison_plots(df_txt, time_col="timestamp", 
+                                                   value_col="%ff_dev_total_(%)",
+                                                   output_dir=OUTPUTS_DIR)
+                
+                # Appliquer le filtre avec la fréquence lue depuis settings
+                lowpass_config = settings.get("lowpass_filter", {})
+                cutoff_period_lowpass_sec = lowpass_config.get("cutoff_period_weeks", 4) * 7 * 24 * 3600  # Convertir semaines en secondes
+                cutoff_frequency = 1 / cutoff_period_lowpass_sec
+                filter_order = lowpass_config.get("order", 5)
+                
+                logger.info(f"Paramètres du filtre: cutoff_freq={cutoff_frequency:.2e} Hz (période ~{cutoff_period_lowpass_sec / (24*3600):.0f} jours), order={filter_order}")
+                
+                df_txt = apply_lowpass_filter(
+                    df_txt,
+                    time_col="timestamp",
+                    value_col="%ff_dev_total_(%)",
+                    cutoff_freq_hz=cutoff_frequency,
+                    order=filter_order
+                )
+                logger.info("Filtre passe bas appliqué sur %ff_dev_total_(%) avec succès")
+                
+                # Afficher le graphique de comparaison si demandé
+                if display_graph_lowpassed_vs_original:
+                    logger.info("Affichage du graphique de comparaison signal brut vs filtré")
+                    plot_lowpass_filter_comparison(
+                        df_txt,
+                        time_col="timestamp",
+                        value_col="%ff_dev_total_(%)",
+                        filtered_col="%ff_dev_total_(%)_filtered"
+                    )
+            except Exception as e:
+                logger.warning(f"Impossible d'appliquer le filtre passe bas: {e}")
+        else:
+            logger.warning("Colonne '%ff_dev_total_(%)' non trouvée pour appliquer le filtre")
+
 
         events_df = schema.standardize_columns(events_df)
         events_df = schema.apply_mapping_events(events_df)
@@ -136,6 +185,30 @@ def run_pipeline():
         reporter.export_csv(maint_impacts, filename="maintenance_impacts_modeled.csv")
         reporter.export_csv(summary, filename="impact_summary.csv")
         reporter.export_csv(df_txt, filename="data_processed.csv")
+        
+        # Exporter le graphique de comparaison filtre vs brut si demandé (sauvegarde uniquement, pas d'affichage)
+        if display_graph_lowpassed_vs_original and "%ff_dev_total_(%)_filtered" in df_txt.columns:
+            try:
+                import matplotlib.pyplot as plt
+                plot_path = OUTPUTS_DIR / "lowpass_filter_comparison.png"
+                
+                # Créer et sauvegarder le graphique sans affichage
+                plt.figure(figsize=(14, 6))
+                plt.plot(df_txt["timestamp"], df_txt["%ff_dev_total_(%)"], label='Signal brut', alpha=0.5, linewidth=0.8)
+                plt.plot(df_txt["timestamp"], df_txt["%ff_dev_total_(%)_filtered"], label='Signal filtré', color='red', linewidth=1.5)
+                plt.xlabel('Temps')
+                plt.ylabel('% Déviation Débit Carburant')
+                plt.title('Comparaison Signal Brut vs Signal Filtré (Passe Bas)')
+                plt.legend()
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                
+                plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+                logger.info(f"Graphique de comparaison sauvegardé: {plot_path}")
+                plt.close()
+            except Exception as e:
+                logger.warning(f"Impossible de générer le graphique de comparaison: {e}")
+
 
         if plan is not None and not plan.empty:
             reporter.export_csv(plan, filename="maintenance_plan.csv")
