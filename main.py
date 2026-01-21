@@ -135,6 +135,7 @@ def run_pipeline():
         reporter.export_csv(type_rates, filename="maintenance_type_rates.csv")
         reporter.export_csv(maint_impacts, filename="maintenance_impacts_modeled.csv")
         reporter.export_csv(summary, filename="impact_summary.csv")
+        reporter.export_csv(df_txt, filename="data_processed.csv")
 
         if plan is not None and not plan.empty:
             reporter.export_csv(plan, filename="maintenance_plan.csv")

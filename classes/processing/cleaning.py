@@ -30,13 +30,12 @@ class DataCleaner:
             try:
                 df["timestamp"] = pd.to_datetime(
                     df[date_col].astype(str) + " " + df[time_col].astype(str),
-                    errors="coerce",
-                    dayfirst=True
+                    errors="coerce"
                 )
             except Exception:
-                df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
+                df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce")
         elif date_col in df.columns:
-            df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
+            df["timestamp"] = pd.to_datetime(df[date_col], errors="coerce")
 
         # ⚠️ Correction: ne pas dropper toutes les lignes ici
         # On garde les NaT pour analyse ultérieure
