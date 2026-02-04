@@ -59,7 +59,7 @@ def test_global_D(df_txt: pd.DataFrame, events_df: pd.DataFrame):
         print("⚠ D(0) non présent dans la table")
 
     print("▶ Tracé de D(t)")
-    estimator.plot_D(D, with_confidence=True)
+    estimator.plot_D_with_samples(D, with_confidence=True)
 
 
 # ------------------------------------------------------------------

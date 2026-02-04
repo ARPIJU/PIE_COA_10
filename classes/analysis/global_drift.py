@@ -94,6 +94,7 @@ class GlobalDriftEstimator:
             * self.time_step_days
         )
 
+        # but de t_bin : séparer les données dans le temps de manière discrète, càd les regrouper par jour
         D = (
             all_contrib
             .groupby("t_bin")
@@ -146,5 +147,54 @@ class GlobalDriftEstimator:
         plt.title("Dérive globale après maintenance — D(t)")
         plt.grid(True, alpha=0.3)
         plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    #pour pouvoir tracer avec le nombre d'échantillons disponibles par jour : 
+
+    @staticmethod
+    def plot_D_with_samples(D: pd.DataFrame, with_confidence: bool = True):
+        """
+        Trace D(t) et le nombre d'échantillons n_samples(t)
+        sur deux sous-figures alignées verticalement.
+        """
+
+        fig, (ax1, ax2) = plt.subplots(
+            2, 1,
+            figsize=(10, 7),
+            sharex=True,
+            gridspec_kw={"height_ratios": [3, 1]}
+        )
+
+        # --- Plot D(t)
+        ax1.plot(D["t_days"], D["D_mean"], label="D(t)", linewidth=2)
+
+        if with_confidence and "D_std" in D.columns:
+            ax1.fill_between(
+                D["t_days"],
+                D["D_mean"] - D["D_std"],
+                D["D_mean"] + D["D_std"],
+                alpha=0.3,
+                label="±1σ"
+            )
+
+        ax1.axhline(0.0, color="black", linewidth=0.8, linestyle="--")
+        ax1.set_ylabel("Δ Fuel Factor (%)")
+        ax1.set_title("Dérive globale après maintenance — D(t)")
+        ax1.grid(True, alpha=0.3)
+        ax1.legend()
+
+        # --- Plot n_samples
+        ax2.step(
+            D["t_days"],
+            D["n_samples"],
+            where="post",
+            linewidth=2
+        )
+
+        ax2.set_xlabel("Temps depuis maintenance (jours)")
+        ax2.set_ylabel("n samples")
+        ax2.grid(True, alpha=0.3)
+
         plt.tight_layout()
         plt.show()
