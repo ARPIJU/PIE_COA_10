@@ -25,6 +25,7 @@ from classes.processing.low_pass_filtering import (
     apply_lowpass_filter,
     plot_lowpass_filter_comparison
 )
+from classes.processing.segregate_plane import segregate_plane_data
 
 BASE = Path(__file__).resolve().parent
 SETTINGS_PATH = BASE / "config" / "settings.json"
@@ -80,20 +81,52 @@ def run_pipeline():
             df_txt = df_txt.dropna(subset=["timestamp"])
             df_txt = df_txt.sort_values("timestamp").reset_index(drop=True)
 
+        events_df = schema.standardize_columns(events_df)
+        events_df = schema.apply_mapping_events(events_df)
+        schema.validate_events(events_df)
+
+        if "date" in events_df.columns:
+            events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
+            events_df = events_df.dropna(subset=["date"])
+            events_df = events_df.sort_values("date").reset_index(drop=True)
+
+        logger.info("TXT records: %d | Event records: %d", df_txt.shape[0], events_df.shape[0])
+
+        # 2.4) Segregate plane data and filter for FHMRB
+        try:
+            logger.info("Segregating flight data by tail number...")
+            tail_numbers = settings["excel_sheets_priority"]
+            segregate_plane_data(df_txt, tail_numbers, output_dir=OUTPUTS_DIR)
+            logger.info("Plane data segregation completed")
+            
+            # Filter df_txt to only include FHMRB aircraft
+            df_txt = df_txt[df_txt["tail_number"] == "FHMRB"].copy().reset_index(drop=True)
+            logger.info(f"Filtered data for FHMRB: {df_txt.shape[0]} records remaining")
+            
+            #-------------------------------------------------------------------
+            # TEMPORAIRE : voir si on prétraite le fichier Excel ou si on dit 
+            # à Jules de le changer pour le lire facilement avec python
+            # Filter events_df to only include FHMRB aircraft
+            events_df = events_df[events_df["tail_number"] == "FHMRB"].copy().reset_index(drop=True)
+            logger.info(f"Filtered events for FHMRB: {events_df.shape[0]} events remaining")
+            
+            if df_txt.empty:
+                logger.error("No data found for aircraft FHMRB. Aborting.")
+                return
+            if events_df.empty:
+                logger.error("No events found for aircraft FHMRB. Aborting.")
+                return
+        except Exception as e:
+            logger.warning(f"Error during plane segregation or filtering: {e}")
+            return
+
+        # 2.5) Appliquer le filtre passe bas sur %ff_dev_total_(%)
+
         # Lire la configuration du filtre passe bas depuis settings
         lowpass_config = settings.get("lowpass_filter", {})
         display_graph_lowpassed_vs_original = lowpass_config.get("display_graph", False)
-
-        # 2.5) Appliquer le filtre passe bas sur %ff_dev_total_(%)
         if "%ff_dev_total_(%)" in df_txt.columns:
             try:
-
-                # Générer les graphiques de comparaison si demandé
-                if display_graph_lowpassed_vs_original:
-                    logger.info("Génération du graphique signal original vs filtré")
-                    generate_filter_comparison_plots(df_txt, time_col="timestamp", 
-                                                   value_col="%ff_dev_total_(%)",
-                                                   output_dir=OUTPUTS_DIR)
                 
                 # Appliquer le filtre avec la fréquence lue depuis settings
                 lowpass_config = settings.get("lowpass_filter", {})
@@ -101,7 +134,7 @@ def run_pipeline():
                 cutoff_frequency = 1 / cutoff_period_lowpass_sec
                 filter_order = lowpass_config.get("order", 5)
                 
-                logger.info(f"Paramètres du filtre: cutoff_freq={cutoff_frequency:.2e} Hz (période ~{cutoff_period_lowpass_sec / (24*3600):.0f} jours), order={filter_order}")
+                logger.info(f"Paramètres du filtre: cutoff_freq={cutoff_frequency:.2e} Hz (période ~{cutoff_period_lowpass_sec / (7*24*3600):.0f} semaines), order={filter_order}")
                 
                 df_txt = apply_lowpass_filter(
                     df_txt,
@@ -119,23 +152,14 @@ def run_pipeline():
                         df_txt,
                         time_col="timestamp",
                         value_col="%ff_dev_total_(%)",
-                        filtered_col="%ff_dev_total_(%)_filtered"
+                        filtered_col="%ff_dev_total_(%)_filtered",
+                        events_df=events_df,
+                        event_date_col="date_of_event"
                     )
             except Exception as e:
                 logger.warning(f"Impossible d'appliquer le filtre passe bas: {e}")
         else:
             logger.warning("Colonne '%ff_dev_total_(%)' non trouvée pour appliquer le filtre")
-
-
-        events_df = schema.standardize_columns(events_df)
-        events_df = schema.apply_mapping_events(events_df)
-        schema.validate_events(events_df)
-        if "date" in events_df.columns:
-            events_df["date"] = pd.to_datetime(events_df["date"], errors="coerce")
-            events_df = events_df.dropna(subset=["date"])
-            events_df = events_df.sort_values("date").reset_index(drop=True)
-
-        logger.info("TXT records: %d | Event records: %d", df_txt.shape[0], events_df.shape[0])
 
         # 3) Analyse d’impact robuste
         intervals = build_event_intervals(events_df)

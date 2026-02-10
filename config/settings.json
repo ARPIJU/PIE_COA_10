@@ -242,7 +242,7 @@
     "enabled": true,
     "cutoff_period_weeks": 8,
     "order": 4,
-    "plot_comparison": true,
+    "plot_comparison": false,
     "display_graph": true
   },
 

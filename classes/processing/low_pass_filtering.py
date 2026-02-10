@@ -208,7 +208,8 @@ def apply_lowpass_filter(df, time_col="timestamp", value_col="%ff_dev_total_(%)"
 
 
 def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_total_(%)",
-                                   filtered_col=None, output_path=None):
+                                   filtered_col=None, output_path=None, events_df=None, 
+                                   event_date_col="Date of Event"):
     """
     Visualise la comparaison entre les données brutes et filtrées.
     
@@ -224,6 +225,10 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
         Nom de la colonne filtrée (si None, cherche {value_col}_filtered)
     output_path : str
         Chemin de sortie pour la figure (optionnel)
+    events_df : pd.DataFrame, optional
+        DataFrame contenant les événements de maintenance avec colonne de date
+    event_date_col : str
+        Nom de la colonne contenant les dates des événements (par défaut "date")
     """
     logger = logging.getLogger(__name__)
     
@@ -236,6 +241,113 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
     plt.figure(figsize=(14, 6))
     plt.plot(df[time_col], df[value_col], label='Signal brut', alpha=0.5, linewidth=0.8)
     plt.plot(df[time_col], df[filtered_col], label='Signal filtré', color='red', linewidth=1.5)
+    
+    # Ajouter les événements de maintenance si fournis (accepte noms mappés comme 'date_of_event')
+    if events_df is not None and not events_df.empty:
+        # build candidate names: original, lowercase, spaces->underscores, common mapped name
+        candidates = [
+            event_date_col,
+            event_date_col.lower() if isinstance(event_date_col, str) else event_date_col,
+            (event_date_col.replace(' ', '_') if isinstance(event_date_col, str) else event_date_col),
+            (event_date_col.lower().replace(' ', '_') if isinstance(event_date_col, str) else event_date_col),
+            'date_of_event',
+            'date'
+        ]
+        # find first existing column
+        date_col = next((c for c in candidates if c in events_df.columns), None)
+
+        if date_col is not None:
+            # collect valid event datetimes and associated labels
+            events = []
+            for _, row in events_df.loc[events_df[date_col].notna()].iterrows():
+                event_date = row[date_col]
+                try:
+                    t = pd.to_datetime(event_date, errors='coerce')
+                except Exception:
+                    t = None
+                if t is pd.NaT or t is None or pd.isna(t):
+                    continue
+                # event name (column 'event')
+                ev_name = None
+                if 'event' in events_df.columns:
+                    ev_name = row.get('event')
+                elif 'Event' in events_df.columns:
+                    ev_name = row.get('Event')
+                label_text = str(ev_name) if (ev_name is not None and pd.notna(ev_name)) else t.strftime("%Y-%m-%d")
+                events.append((t, label_text))
+
+            if events:
+                # sort by time
+                events.sort(key=lambda x: x[0])
+
+                # determine minimum separation (in seconds) to avoid overlap, based on data span
+                try:
+                    span_secs = (pd.to_datetime(df[time_col]).max() - pd.to_datetime(df[time_col]).min()).total_seconds()
+                    if span_secs <= 0 or pd.isna(span_secs):
+                        span_secs = 1.0
+                except Exception:
+                    span_secs = 1.0
+
+                num_events = max(1, len(events))
+                min_sep = max(1.0, span_secs / max(10.0, float(num_events)))
+
+                # greedy assignment of tiers: place each event in the lowest tier where it's at least min_sep from last placed
+                tiers_last_time = []  # store last time in each tier
+                events_with_tier = []
+                for t, label_text in events:
+                    placed = False
+                    for tier_idx, last_t in enumerate(tiers_last_time):
+                        if abs((t - last_t).total_seconds()) >= min_sep:
+                            tiers_last_time[tier_idx] = t
+                            events_with_tier.append((t, label_text, tier_idx))
+                            placed = True
+                            break
+                    if not placed:
+                        tiers_last_time.append(t)
+                        events_with_tier.append((t, label_text, len(tiers_last_time) - 1))
+
+                # plot lines and annotate using tier to stagger vertically
+                try:
+                    ax = plt.gca()
+                    y_min, y_max = ax.get_ylim()
+                    if y_max is None or y_min is None or y_max == y_min:
+                        y_max = (pd.to_numeric(df[value_col], errors='coerce').dropna().max() if value_col in df.columns else 0)
+                        y_min = 0
+                except Exception:
+                    y_min, y_max = 0, 1
+
+                for t, label_text, tier_idx in events_with_tier:
+                    plt.axvline(t, color="orange", linestyle="--", alpha=0.6, linewidth=1.5)
+                    # truncate long labels
+                    max_len = 40
+                    if len(label_text) > max_len:
+                        label_text_trunc = label_text[: max_len - 3] + "..."
+                    else:
+                        label_text_trunc = label_text
+
+                    # compute vertical offset in points
+                    vert_offset_pts = 6 + tier_idx * 12
+                    try:
+                        ax.annotate(
+                            label_text_trunc,
+                            xy=(t, y_max),
+                            xytext=(0, -vert_offset_pts),
+                            textcoords='offset points',
+                            ha='center',
+                            va='top',
+                            fontsize=8,
+                            color='black',
+                            rotation=0,
+                            bbox=dict(boxstyle='round,pad=0.2', fc='white', ec='orange', alpha=0.95),
+                            clip_on=True
+                        )
+                    except Exception:
+                        pass
+
+                plt.plot([], [], color="orange", linestyle="--", linewidth=1.2, label='Événements de maintenance')
+        else:
+            logger.warning(f"Colonne d'événement de maintenance introuvable (candidates tried: {candidates})")
+            
     plt.xlabel('Temps')
     plt.ylabel('% Déviation Débit Carburant')
     plt.title('Comparaison Signal Brut vs Signal Filtré (Passe Bas)')
@@ -248,3 +360,5 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
         logger.info(f"Graphique sauvegardé: {output_path}")
     
     plt.show()
+
+

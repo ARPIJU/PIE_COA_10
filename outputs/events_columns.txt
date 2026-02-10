@@ -1,0 +1,16 @@
+airac_cycle
+date
+%thrst_reqd
+%fuel_flow
+fuel_flow_factor_=_-(%fm)
+update_flag
+remarks
+unnamed:_7
+date_of_event
+position_y
+event
+unnamed:_11
+date_of_actual_value
+position/value
+actual_value
+tail_number
