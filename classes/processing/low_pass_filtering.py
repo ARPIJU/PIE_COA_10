@@ -246,18 +246,13 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
     if events_df is not None and not events_df.empty:
         # build candidate names: original, lowercase, spaces->underscores, common mapped name
         candidates = [
-            event_date_col,
-            event_date_col.lower() if isinstance(event_date_col, str) else event_date_col,
-            (event_date_col.replace(' ', '_') if isinstance(event_date_col, str) else event_date_col),
-            (event_date_col.lower().replace(' ', '_') if isinstance(event_date_col, str) else event_date_col),
             'date_of_event',
-            'date'
         ]
         # find first existing column
         date_col = next((c for c in candidates if c in events_df.columns), None)
 
         if date_col is not None:
-            # collect valid event datetimes and associated labels
+            # collect valid event datetimes, labels and tail numbers (if present)
             events = []
             for _, row in events_df.loc[events_df[date_col].notna()].iterrows():
                 event_date = row[date_col]
@@ -274,7 +269,8 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
                 elif 'Event' in events_df.columns:
                     ev_name = row.get('Event')
                 label_text = str(ev_name) if (ev_name is not None and pd.notna(ev_name)) else t.strftime("%Y-%m-%d")
-                events.append((t, label_text))
+                tail = row.get('tail_number') if 'tail_number' in events_df.columns else None
+                events.append((t, label_text, tail))
 
             if events:
                 # sort by time
@@ -294,17 +290,17 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
                 # greedy assignment of tiers: place each event in the lowest tier where it's at least min_sep from last placed
                 tiers_last_time = []  # store last time in each tier
                 events_with_tier = []
-                for t, label_text in events:
+                for t, label_text, tail in events:
                     placed = False
                     for tier_idx, last_t in enumerate(tiers_last_time):
                         if abs((t - last_t).total_seconds()) >= min_sep:
                             tiers_last_time[tier_idx] = t
-                            events_with_tier.append((t, label_text, tier_idx))
+                            events_with_tier.append((t, label_text, tier_idx, tail))
                             placed = True
                             break
                     if not placed:
                         tiers_last_time.append(t)
-                        events_with_tier.append((t, label_text, len(tiers_last_time) - 1))
+                        events_with_tier.append((t, label_text, len(tiers_last_time) - 1, tail))
 
                 # plot lines and annotate using tier to stagger vertically
                 try:
@@ -316,8 +312,26 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
                 except Exception:
                     y_min, y_max = 0, 1
 
-                for t, label_text, tier_idx in events_with_tier:
-                    plt.axvline(t, color="orange", linestyle="--", alpha=0.6, linewidth=1.5)
+                # prepare color mapping per tail_number
+                tails = [tail for (_, _, _, tail) in events_with_tier if tail is not None]
+                unique_tails = list(dict.fromkeys(tails))
+                # build a color list excluding the default blue and red (to maximize contrast
+                # against the unfiltered (blue) and filtered (red) curves)
+                base_cmap = plt.get_cmap('tab10') if len(unique_tails) <= 10 else plt.get_cmap('tab20')
+                exclude_idxs = {0, 3}  # tab10: 0=blue, 3=red
+                available_colors = [base_cmap(i) for i in range(base_cmap.N) if i not in exclude_idxs]
+                if not available_colors:
+                    available_colors = ['orange', 'green', 'purple', 'brown', 'olive', 'cyan']
+                tail_colors = {t: available_colors[i % len(available_colors)] for i, t in enumerate(unique_tails)}
+
+                seen_tails = set()
+                for t, label_text, tier_idx, tail in events_with_tier:
+                    color = tail_colors.get(tail, "orange")
+                    # label each tail once for the legend
+                    label = tail if (tail is not None and tail not in seen_tails) else ("_nolegend_" if tail is not None else 'Événement')
+                    if tail is not None:
+                        seen_tails.add(tail)
+                    plt.axvline(t, color=color, linestyle="--", alpha=0.6, linewidth=1.5, label=label)
                     # truncate long labels
                     max_len = 40
                     if len(label_text) > max_len:
@@ -328,6 +342,11 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
                     # compute vertical offset in points
                     vert_offset_pts = 6 + tier_idx * 12
                     try:
+                        bbox_kwargs = dict(boxstyle='round,pad=0.2', fc='white', alpha=0.95)
+                        if tail is not None:
+                            bbox_kwargs['ec'] = tail_colors.get(tail, 'orange')
+                        else:
+                            bbox_kwargs['ec'] = 'orange'
                         ax.annotate(
                             label_text_trunc,
                             xy=(t, y_max),
@@ -338,13 +357,13 @@ def plot_lowpass_filter_comparison(df, time_col="timestamp", value_col="%ff_dev_
                             fontsize=8,
                             color='black',
                             rotation=0,
-                            bbox=dict(boxstyle='round,pad=0.2', fc='white', ec='orange', alpha=0.95),
+                            bbox=bbox_kwargs,
                             clip_on=True
                         )
                     except Exception:
                         pass
 
-                plt.plot([], [], color="orange", linestyle="--", linewidth=1.2, label='Événements de maintenance')
+                # removed generic 'Événements de maintenance' legend entry — tails are labeled individually
         else:
             logger.warning(f"Colonne d'événement de maintenance introuvable (candidates tried: {candidates})")
             

@@ -51,16 +51,38 @@ def run_pipeline():
 
         sheet_priority = [s for s in settings["excel_sheets_priority"] if s != "FHMRI"]
 
-        events_df = load_events(str(excel_file), sheet_priority=sheet_priority, ignore_sheets=["FHMRI"])
+        # Read event sheets individually and tag rows with their sheet name as `tail_number`.
+        try:
+            xls = pd.ExcelFile(excel_file)
+            frames = []
+            for s in sheet_priority:
+                if s == "FHMRI":
+                    continue
+                if s in xls.sheet_names:
+                    try:
+                        df_s = pd.read_excel(excel_file, sheet_name=s)
+                        df_s["tail_number"] = s
+                        frames.append(df_s)
+                    except Exception as _e:
+                        logger.warning("Could not read sheet %s: %s", s, _e)
+                else:
+                    logger.debug("Sheet %s not found in %s", s, excel_file)
+            if not frames:
+                logger.error("No event sheets read from %s (checked: %s)", excel_file, sheet_priority)
+                return
+            events_df = pd.concat(frames, ignore_index=True)
+            loaded_sheets = [s for s in sheet_priority if s in xls.sheet_names and s != "FHMRI"]
+            sheet_used = loaded_sheets[0] if loaded_sheets else sheet_priority[0]
+            logger.info("Events loaded from sheets: %s", loaded_sheets)
+        except Exception as e:
+            logger.error("Failed reading event sheets: %s", e)
+            return
+
         df_txt = load_txt_series(str(txt_file), txt_read=settings["txt_read"], columns_mapping=settings["columns_mapping"])
 
         if df_txt.empty or events_df.empty:
             logger.error("Data not loaded or empty. Aborting.")
             return
-
-        sheet_used = sheet_priority[0]
-        events_df["tail_number"] = sheet_used
-        logger.info("Events loaded from sheet: %s", sheet_used)
 
         # 2) Schéma et nettoyage
         schema = DataSchema(settings)
@@ -109,6 +131,22 @@ def run_pipeline():
             logger.info(f"Filtered data for tails {selected_tails}: {df_txt.shape[0]} records remaining")
 
             events_df = events_df[events_df["tail_number"].isin(selected_tails)].copy().reset_index(drop=True)
+
+            # Keep only events that have a valid date and a non-empty event name.
+            # Prefer 'date_of_event' if present (some original sheets use that), otherwise use mapped 'date'.
+            date_candidates = [c for c in ("date_of_event", "date") if c in events_df.columns]
+            if date_candidates:
+                for c in date_candidates:
+                    try:
+                        events_df[c] = pd.to_datetime(events_df[c], errors="coerce")
+                    except Exception:
+                        events_df[c] = pd.to_datetime(events_df[c], errors="coerce")
+                primary_date_col = "date_of_event" if "date_of_event" in events_df.columns else "date"
+                events_df = events_df.dropna(subset=[primary_date_col, "event"]).copy().reset_index(drop=True)
+            else:
+                # If no date column found, at least require an event name
+                events_df = events_df.dropna(subset=["event"]).copy().reset_index(drop=True)
+
             logger.info(f"Filtered events for tails {selected_tails}: {events_df.shape[0]} events remaining")
 
             if df_txt.empty:
@@ -116,7 +154,7 @@ def run_pipeline():
                 return
             if events_df.empty:
                 logger.error(f"No events found for aircraft tails {selected_tails}. Aborting.")
-                return
+                
         except Exception as e:
             logger.warning(f"Error during plane segregation or filtering: {e}")
             return
