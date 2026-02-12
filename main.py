@@ -92,29 +92,30 @@ def run_pipeline():
 
         logger.info("TXT records: %d | Event records: %d", df_txt.shape[0], events_df.shape[0])
 
-        # 2.4) Segregate plane data and filter for FHMRB
+        # 2.4) Segregate plane data and filter for FHMRB / all planes
         try:
             logger.info("Segregating flight data by tail number...")
             tail_numbers = settings["excel_sheets_priority"]
             segregate_plane_data(df_txt, tail_numbers, output_dir=OUTPUTS_DIR)
             logger.info("Plane data segregation completed")
             
-            # Filter df_txt to only include FHMRB aircraft
-            df_txt = df_txt[df_txt["tail_number"] == "FHMRB"].copy().reset_index(drop=True)
-            logger.info(f"Filtered data for FHMRB: {df_txt.shape[0]} records remaining")
-            
-            #-------------------------------------------------------------------
-            # TEMPORAIRE : voir si on prétraite le fichier Excel ou si on dit 
-            # à Jules de le changer pour le lire facilement avec python
-            # Filter events_df to only include FHMRB aircraft
-            events_df = events_df[events_df["tail_number"] == "FHMRB"].copy().reset_index(drop=True)
-            logger.info(f"Filtered events for FHMRB: {events_df.shape[0]} events remaining")
-            
+            # Filter df_txt/events_df to only include selected tail numbers from settings
+            selected_tails = settings.get("selected_tail_numbers", [sheet_used])
+            # allow a single string in settings as well
+            if isinstance(selected_tails, str):
+                selected_tails = [selected_tails]
+
+            df_txt = df_txt[df_txt["tail_number"].isin(selected_tails)].copy().reset_index(drop=True)
+            logger.info(f"Filtered data for tails {selected_tails}: {df_txt.shape[0]} records remaining")
+
+            events_df = events_df[events_df["tail_number"].isin(selected_tails)].copy().reset_index(drop=True)
+            logger.info(f"Filtered events for tails {selected_tails}: {events_df.shape[0]} events remaining")
+
             if df_txt.empty:
-                logger.error("No data found for aircraft FHMRB. Aborting.")
+                logger.error(f"No data found for aircraft tails {selected_tails}. Aborting.")
                 return
             if events_df.empty:
-                logger.error("No events found for aircraft FHMRB. Aborting.")
+                logger.error(f"No events found for aircraft tails {selected_tails}. Aborting.")
                 return
         except Exception as e:
             logger.warning(f"Error during plane segregation or filtering: {e}")

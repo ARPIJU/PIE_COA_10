@@ -12,7 +12,7 @@
     }
   },
 
-  "excel_sheets_priority": ["FHMRB", "FHMRC", "FHMRA", "FHMRI"],
+  "excel_sheets_priority": ["FHMRB", "FHMRF", "FHMRO","FHMRI"],
 
   "txt_read": {
     "skip_rows": 5,
@@ -245,6 +245,8 @@
     "plot_comparison": false,
     "display_graph": true
   },
+
+  "selected_tail_numbers": ["FHMRB","FHMRF", "FHMRO"],
 
   "logging": {
     "level": "INFO"
