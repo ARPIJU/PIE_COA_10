@@ -3,6 +3,8 @@ import json
 import logging
 import sys
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from classes.utils.logging_conf import setup_logging
 from classes.io.data_loader import load_events, load_txt_series
@@ -12,6 +14,7 @@ from classes.domain.apm_models import APMModels
 from classes.domain.maintenance import MaintenanceCatalog
 from classes.analysis.reporting import Reporter
 from classes.optimization.scheduler import MaintenanceScheduler
+from classes.analysis.correlation import correlation
 
 from classes.analysis.impact_analysis import (
     build_event_intervals,
@@ -142,7 +145,15 @@ def run_pipeline():
             )
             logger.info(f"Graph for tail {tail} saved: {plot_path}")
 
-        # --- 7) Reporting global ---
+        # --- 7) Analyse de corrélation ---
+        correlation(
+            files=[
+                str(OUTPUTS_DIR / f"data_{tail}.csv") for tail in selected_tails
+            ],
+            target="%ff_dev_total_(%)_filtered"
+        )
+
+        # --- 8) Reporting global ---
         reporter = Reporter(OUTPUTS_DIR)
         reporter.export_csv(df_txt, filename="data_processed.csv")
         logger.info("Global data_processed.csv saved.")
