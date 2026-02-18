@@ -124,10 +124,10 @@ def run_pipeline():
                     order=order
                 )
 
-            # --- 5) Sauvegarde CSV par avion ---
+            # --- 5) Sauvegarde CSV filtré par avion ---
             tail_csv_path = OUTPUTS_DIR / f"data_{tail}.csv"
             df_tail.to_csv(tail_csv_path, index=False)
-            logger.info(f"Data for tail {tail} saved: {tail_csv_path}")
+            logger.info(f"Filtered data for tail {tail} saved: {tail_csv_path}")
 
             # --- 6) Génération graphique par avion ---
             plot_path = OUTPUTS_DIR / f"lowpass_filter_{tail}.png"
@@ -142,7 +142,7 @@ def run_pipeline():
             )
             logger.info(f"Graph for tail {tail} saved: {plot_path}")
 
-        # --- 7) Reporting global (inchangé) ---
+        # --- 7) Reporting global ---
         reporter = Reporter(OUTPUTS_DIR)
         reporter.export_csv(df_txt, filename="data_processed.csv")
         logger.info("Global data_processed.csv saved.")
