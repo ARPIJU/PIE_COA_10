@@ -1,163 +1,270 @@
+from pathlib import Path
+import json
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Tuple
 
 
 class GlobalDriftEstimator:
     """
-    Calcule un D(t) global à partir d'un signal filtré et des dates de maintenance,
-    par recentrage post-maintenance.
+    Calcule un D(t) global en utilisant les données filtrées
+    sauvegardées dans outputs/data_<TAIL>.csv.
+
+    Agrège tous les intervalles inter-maintenance
+    de tous les avions sélectionnés.
     """
 
     def __init__(
         self,
-        df_txt: pd.DataFrame,
-        events_df: pd.DataFrame,
-        time_col: str = "timestamp",
+        settings_path: str,
+        outputs_dir: str,
         signal_col: str = "%ff_dev_total_(%)_filtered",
-        maintenance_col: str = "date",
+        time_col: str = "timestamp",
         stabilization_days: int = 10,
         time_step_days: float = 1.0,
     ):
-        self.df_txt = df_txt.copy()
-        self.events_df = events_df.copy()
-        self.time_col = time_col
+        self.settings_path = Path(settings_path)
+        self.outputs_dir = Path(outputs_dir)
+
         self.signal_col = signal_col
-        self.maintenance_col = maintenance_col
+        self.time_col = time_col
         self.stabilization_days = stabilization_days
         self.time_step_days = time_step_days
 
-        self._prepare()
+        self.selected_tails = self._load_selected_tails()
+        self.df_txt = self._load_all_tails()
+        self.events_df = self._load_events()
 
-    def _prepare(self):
-        # Sécurité et tri
-        self.df_txt[self.time_col] = pd.to_datetime(self.df_txt[self.time_col])
-        self.events_df[self.maintenance_col] = pd.to_datetime(self.events_df[self.maintenance_col])
+    # --------------------------------------------------
+    # LOAD SETTINGS
+    # --------------------------------------------------
 
-        self.df_txt = self.df_txt.sort_values(self.time_col).reset_index(drop=True)
-        self.events_df = self.events_df.sort_values(self.maintenance_col).reset_index(drop=True)
+    def _load_selected_tails(self):
 
-    def compute_D(self) -> pd.DataFrame:
-        """
-        Retourne un DataFrame avec :
-          - t_days
-          - D_mean
-          - D_std
-          - n_samples
-        """
+        if not self.settings_path.exists():
+            raise FileNotFoundError(self.settings_path)
 
-        contributions = []
+        with open(self.settings_path, "r", encoding="utf-8") as f:
+            settings = json.load(f)
 
-        maint_dates = self.events_df[self.maintenance_col].values
+        tails = settings.get("selected_tail_numbers", [])
 
-        for i in range(len(maint_dates) - 1):
-            t0 = maint_dates[i]
-            t1 = maint_dates[i + 1]
+        if isinstance(tails, str):
+            tails = [tails]
 
-            start = t0 + pd.Timedelta(days=self.stabilization_days)
+        if not tails:
+            raise ValueError("selected_tail_numbers est vide dans settings.json")
 
-            seg = self.df_txt[
-                (self.df_txt[self.time_col] >= start) &
-                (self.df_txt[self.time_col] < t1)
-            ]
+        return tails
 
-            if seg.empty:
+    # --------------------------------------------------
+    # LOAD FILTERED DATA (CSV PER AIRCRAFT)
+    # --------------------------------------------------
+
+    def _load_all_tails(self):
+
+        frames = []
+
+        for tail in self.selected_tails:
+            path = self.outputs_dir / f"data_{tail}.csv"
+
+            if not path.exists():
+                print(f"⚠ CSV introuvable pour {tail}")
                 continue
 
-            # Référence locale
-            ref_value = seg.iloc[0][self.signal_col]
+            df = pd.read_csv(path)
 
-            t_days = (
-                (seg[self.time_col] - start)
-                .dt.total_seconds()
-                .values / (24 * 3600)
+            if self.time_col not in df.columns:
+                print(f"⚠ timestamp absent pour {tail}")
+                continue
+
+            if self.signal_col not in df.columns:
+                print(f"⚠ signal filtré absent pour {tail}")
+                continue
+
+            df[self.time_col] = pd.to_datetime(df[self.time_col])
+            df["tail_number"] = tail
+
+            frames.append(df)
+
+        if not frames:
+            raise ValueError("Aucune donnée filtrée chargée depuis outputs/")
+
+        df_all = pd.concat(frames, ignore_index=True)
+        df_all = df_all.sort_values(self.time_col).reset_index(drop=True)
+
+        print(f"✔ {len(df_all)} points chargés pour {len(frames)} avions")
+
+        return df_all
+
+    # --------------------------------------------------
+    # LOAD MAINTENANCE EVENTS
+    # --------------------------------------------------
+
+    def _load_events(self):
+
+        events_path = self.outputs_dir / "maintenance_impacts_modeled.csv"
+
+        if not events_path.exists():
+            raise FileNotFoundError(events_path)
+
+        events_df = pd.read_csv(events_path)
+
+        # compatibilité colonne date
+        if "event_date" in events_df.columns:
+            events_df["date"] = pd.to_datetime(events_df["event_date"])
+        elif "date" in events_df.columns:
+            events_df["date"] = pd.to_datetime(events_df["date"])
+        else:
+            raise ValueError(
+                "maintenance_impacts_modeled.csv doit contenir 'event_date' ou 'date'"
             )
 
-            delta_ff = seg[self.signal_col].values - ref_value
+        if "tail_number" not in events_df.columns:
+            raise ValueError("Colonne 'tail_number' absente dans maintenance_impacts_modeled.csv")
 
-            contributions.append(
-                pd.DataFrame({
-                    "t_days": t_days,
-                    "delta_ff": delta_ff
-                })
-            )
+        return events_df.sort_values("date").reset_index(drop=True)
+
+    # --------------------------------------------------
+    # COMPUTE GLOBAL D(t)
+    # --------------------------------------------------
+
+    def compute_D(self):
+
+        contributions = []
+        total_intervals = 0
+
+        for tail in self.selected_tails:
+
+            df_tail = self.df_txt[self.df_txt["tail_number"] == tail]
+            events_tail = self.events_df[
+                self.events_df["tail_number"] == tail
+            ].sort_values("date")
+
+            maint_dates = events_tail["date"].values
+
+            if len(maint_dates) < 2:
+                continue
+
+            for i in range(len(maint_dates) - 1):
+
+                t0 = maint_dates[i]
+                t1 = maint_dates[i + 1]
+
+                start = t0 + pd.Timedelta(days=self.stabilization_days)
+
+                seg = df_tail[
+                    (df_tail[self.time_col] >= start)
+                    & (df_tail[self.time_col] < t1)
+                ]
+
+                if seg.empty:
+                    continue
+
+                ref_value = seg.iloc[0][self.signal_col]
+
+                t_days = (
+                    (seg[self.time_col] - start)
+                    .dt.total_seconds()
+                    / 86400.0
+                )
+
+                delta = seg[self.signal_col] - ref_value
+
+                contributions.append(
+                    pd.DataFrame(
+                        {
+                            "t_days": t_days,
+                            "delta_ff": delta,
+                        }
+                    )
+                )
+
+                total_intervals += 1
 
         if not contributions:
-            return pd.DataFrame(columns=["t_days", "D_mean", "D_std", "n_samples"])
+            print("⚠ Aucun intervalle exploitable")
+            return pd.DataFrame()
 
-        all_contrib = pd.concat(contributions, ignore_index=True)
+        print(f"✔ {total_intervals} intervalles inter-maintenance utilisés")
 
-        # Binning temporel
-        all_contrib["t_bin"] = (
-            np.floor(all_contrib["t_days"] / self.time_step_days)
+        all_data = pd.concat(contributions, ignore_index=True)
+
+        # binning temporel
+        all_data["t_bin"] = (
+            np.floor(all_data["t_days"] / self.time_step_days)
             * self.time_step_days
         )
 
-        # but de t_bin : séparer les données dans le temps de manière discrète, càd les regrouper par jour
         D = (
-            all_contrib
-            .groupby("t_bin")
+            all_data.groupby("t_bin")
             .agg(
                 D_mean=("delta_ff", "mean"),
                 D_std=("delta_ff", "std"),
-                n_samples=("delta_ff", "size")
+                n_samples=("delta_ff", "size"),
             )
             .reset_index()
             .rename(columns={"t_bin": "t_days"})
+            .sort_values("t_days")
         )
 
-        # Forcer D(0) = 0
+        # forcer D(0) = 0
         if 0.0 not in D["t_days"].values:
-            D = pd.concat([
-                pd.DataFrame({
-                    "t_days": [0.0],
-                    "D_mean": [0.0],
-                    "D_std": [0.0],
-                    "n_samples": [len(maint_dates) - 1]
-                }),
-                D
-            ], ignore_index=True)
+            D = pd.concat(
+                [
+                    pd.DataFrame(
+                        {
+                            "t_days": [0.0],
+                            "D_mean": [0.0],
+                            "D_std": [0.0],
+                            "n_samples": [total_intervals],
+                        }
+                    ),
+                    D,
+                ],
+                ignore_index=True,
+            )
 
-        D = D.sort_values("t_days").reset_index(drop=True)
         D.loc[D["t_days"] == 0.0, ["D_mean", "D_std"]] = 0.0
 
-        return D
+        return D.sort_values("t_days").reset_index(drop=True)
+
+    # --------------------------------------------------
+    # PLOT
+    # --------------------------------------------------
 
     @staticmethod
-    def plot_D(D: pd.DataFrame, with_confidence: bool = True):
-        """
-        Trace la courbe D(t)
-        """
-        plt.figure(figsize=(10, 5))
-        plt.plot(D["t_days"], D["D_mean"], label="D(t)", linewidth=2)
+    def plot_D(D: pd.DataFrame):
 
-        if with_confidence and "D_std" in D.columns:
+        plt.figure(figsize=(10, 5))
+        plt.plot(D["t_days"], D["D_mean"], linewidth=2)
+
+        if "D_std" in D.columns:
             plt.fill_between(
                 D["t_days"],
                 D["D_mean"] - D["D_std"],
                 D["D_mean"] + D["D_std"],
                 alpha=0.3,
-                label="±1σ"
             )
 
-        plt.axhline(0.0, color="black", linewidth=0.8, linestyle="--")
-        plt.xlabel("Temps depuis maintenance (jours)")
-        plt.ylabel("Δ Fuel Factor (%)")
-        plt.title("Dérive globale après maintenance — D(t)")
-        plt.grid(True, alpha=0.3)
-        plt.legend()
+        plt.axhline(0, linestyle="--")
+        plt.xlabel("jours depuis maintenance")
+        plt.ylabel("Δ FF (%)")
+        plt.title("Dérive globale D(t)")
+        plt.grid(alpha=0.3)
         plt.tight_layout()
         plt.show()
 
-    #pour pouvoir tracer avec le nombre d'échantillons disponibles par jour : 
+    # --------------------------------------------------
+    # PLOT WITH SAMPLE COUNT
+    # --------------------------------------------------
 
     @staticmethod
     def plot_D_with_samples(D: pd.DataFrame, with_confidence: bool = True):
-        """
-        Trace D(t) et le nombre d'échantillons n_samples(t)
-        sur deux sous-figures alignées verticalement.
-        """
+
+        if D.empty:
+            print("⚠ D(t) vide — rien à tracer")
+            return
 
         fig, (ax1, ax2) = plt.subplots(
             2, 1,
@@ -166,8 +273,8 @@ class GlobalDriftEstimator:
             gridspec_kw={"height_ratios": [3, 1]}
         )
 
-        # --- Plot D(t)
-        ax1.plot(D["t_days"], D["D_mean"], label="D(t)", linewidth=2)
+        # ---- Courbe principale ----
+        ax1.plot(D["t_days"], D["D_mean"], linewidth=2, label="D(t)")
 
         if with_confidence and "D_std" in D.columns:
             ax1.fill_between(
@@ -178,23 +285,24 @@ class GlobalDriftEstimator:
                 label="±1σ"
             )
 
-        ax1.axhline(0.0, color="black", linewidth=0.8, linestyle="--")
-        ax1.set_ylabel("Δ Fuel Factor (%)")
-        ax1.set_title("Dérive globale après maintenance — D(t)")
-        ax1.grid(True, alpha=0.3)
+        ax1.axhline(0, linestyle="--")
+        ax1.set_ylabel("Δ FF (%)")
+        ax1.set_title("Dérive globale D(t)")
+        ax1.grid(alpha=0.3)
         ax1.legend()
 
-        # --- Plot n_samples
-        ax2.step(
-            D["t_days"],
-            D["n_samples"],
-            where="post",
-            linewidth=2
-        )
+        # ---- Nombre d'échantillons ----
+        if "n_samples" in D.columns:
+            ax2.step(
+                D["t_days"],
+                D["n_samples"],
+                where="post",
+                linewidth=2
+            )
+            ax2.set_ylabel("n samples")
+            ax2.grid(alpha=0.3)
 
-        ax2.set_xlabel("Temps depuis maintenance (jours)")
-        ax2.set_ylabel("n samples")
-        ax2.grid(True, alpha=0.3)
+        ax2.set_xlabel("jours depuis maintenance")
 
         plt.tight_layout()
         plt.show()
