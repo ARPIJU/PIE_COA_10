@@ -1,52 +1,126 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 def correlation(files, target):
-    # -----------------------------
-    # Fonction de nettoyage
-    # -----------------------------
+    if not files:
+        raise ValueError("La liste des fichiers est vide.")
 
+    n_files = len(files)
+    n_cols = min(3, n_files)
+    n_rows = (n_files + n_cols - 1) // n_cols
 
-    # -----------------------------
-    # Préparation de la figure
-    # -----------------------------
-    fig, axes = plt.subplots(1, 3, figsize=(26, 10))
-
-    # -----------------------------
-    # Boucle sur les fichiers
-    # -----------------------------
-    for i, file in enumerate(files):
-
-        # Charger
+    # Premiere passe: calcule les correlations pour construire un ordre global.
+    corr_by_file = []
+    for file in files:
         df = pd.read_csv(file)
-
-        # Nettoyer la colonne cible
         df = clean_target_column(df, target)
-
-        # Garder uniquement les colonnes numériques
         df_num = df.select_dtypes(include=["float64", "int64"])
 
-        # Vérifier que la colonne existe
         if target not in df_num.columns:
             raise ValueError(f"La colonne {target} n'existe pas dans {file}")
 
-        # Corrélation basique (Pearson par défaut)
-        corr = df_num.corr()[target].sort_values(ascending=False)
+        df_num = df_num.loc[:, df_num.nunique(dropna=True) > 1]
+        if target not in df_num.columns:
+            raise ValueError(
+                f"La colonne {target} est constante ou vide dans {file}"
+            )
 
-        # Plot
+        corr = (
+            df_num.corr(numeric_only=True)[target]
+            .dropna()
+            .drop(labels=[target], errors="ignore")
+        )
+        corr_by_file.append(corr)
+
+    all_corr = pd.concat(corr_by_file, axis=1)
+    global_order = (
+        all_corr.abs().mean(axis=1).sort_values(ascending=False).index.tolist()
+    )
+
+    # Context plus compact pour faire tenir les textes a l'ecran.
+    sns.set_theme(style="whitegrid", context="notebook")
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(8 * n_cols, 4.8 * n_rows),
+        constrained_layout=True
+    )
+
+    if not isinstance(axes, (list, tuple)):
+        axes = [axes] if n_files == 1 else axes.flatten()
+    else:
+        axes = list(axes)
+
+    if hasattr(axes, "flatten"):
+        axes = axes.flatten()
+
+    plot_order = list(range(n_files))
+    if n_files >= 3:
+        plot_order[1], plot_order[2] = plot_order[2], plot_order[1]
+
+    for i, file_idx in enumerate(plot_order):
+        file = files[file_idx]
+        corr = corr_by_file[file_idx].reindex(global_order).dropna()
+
+        ax = axes[i]
+
+        if corr.empty:
+            ax.text(
+                0.5,
+                0.5,
+                "Aucune correlation exploitable",
+                ha="center",
+                va="center",
+                fontsize=9
+            )
+            ax.set_axis_off()
+            continue
+
+        palette = ["#c62828" if val < 0 else "#2e7d32" for val in corr.values]
+
         sns.barplot(
             x=corr.values,
             y=corr.index,
-            ax=axes[i]
+            ax=ax,
+            orient="h",
+            palette=palette
         )
-        axes[i].set_title(f"Corrélations — {file.split('/')[-1]}")
-        axes[i].set_xlabel("Corrélation")
-        axes[i].set_ylabel("Variables")
 
-    plt.tight_layout()
+        for y, val in enumerate(corr.values):
+            x_offset = 0.015 if val >= 0 else -0.015
+            ha = "left" if val >= 0 else "right"
+            ax.text(
+                val + x_offset,
+                y,
+                f"{val:.2f}",
+                va="center",
+                ha=ha,
+                fontsize=8,
+                color="#222222"
+            )
+
+
+        max_abs = max(abs(corr.min()), abs(corr.max()), 0.1)
+        x_limit = min(1.05, max_abs + 0.12)
+        ax.set_xlim(-x_limit, x_limit)
+        ax.axvline(0, color="#444444", linewidth=1.0, linestyle="--")
+
+        title_file = Path(file).name
+        ax.set_title(f"Correlations avec {target}\n{title_file}", fontsize=10)
+        ax.set_xlabel("Coefficient de correlation (Pearson)", fontsize=9)
+        ax.set_ylabel("Variables", fontsize=9)
+        ax.tick_params(axis="both", labelsize=8)
+        ax.grid(axis="x", linestyle=":", alpha=0.5)
+        sns.despine(ax=ax, left=False, bottom=False)
+
+    for j in range(n_files, len(axes)):
+        axes[j].set_axis_off()
+
     plt.show()
+
 
 def clean_target_column(df, col):
     df[col] = (
