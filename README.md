@@ -1,526 +1,327 @@
-# PIE COA 10
-
----
-# A FAIRE
-- Trouver un moyen d'optimiser en temps glissant les opérations de maintenance + Se renseigner sur les vrais coups de maintenance. (2 Personnes)
-- Moyenner sur tous les avions et proposer un choix de l'avion sur lequel travailler. (1 personne) Cette personne a pour unique but de faire le lien entre performances et évent de maintenance.
-- Faire un README complet avec une explication du code. (1 personne) drawio
-
----
-
-## Introduction
-Ce projet vise à analyser l’impact des événements de maintenance sur la consommation de carburant et à proposer un plan optimisé selon des contraintes économiques.  
-Il est conçu pour être **reproductible**, **transparent**, et **utile en contexte opérationnel**.
-
----
-
-## Objectifs
-- Quantifier l’effet réel des maintenances sur la performance (ex. fuel flow).
-- Décider d’actions concrètes selon l’économie associée et les contraintes opérationnelles.
-- Simuler différents contextes économiques (prix du carburant, budget).
-- Produire des livrables clairs et systématiques à chaque run.
-
----
-
-## Structure du dépôt
-
-- **`main.py`** → Point d’entrée du pipeline, orchestre toutes les étapes.
-- **`config/settings.json`** → Paramètres économiques, contraintes, tolérances, logging.
-- **`outputs/`** → Livrables générés à chaque run (CSV + PNG).
-- **`notebooks/`** → Prototypage et tests (ex. `test_main.ipynb`).
-- **`classes/`** → Modules du pipeline :
-  - `io/` → chargement et schémas (`data_loader.py`, `schemas.py`).
-  - `processing/` → nettoyage (`cleaning.py`).
-  - `domain/` → logique métier (`maintenance.py`, `apm_models.py`).
-  - `analysis/` → calculs et reporting (`impact_analysis.py`, `reporting.py`).
-  - `optimization/` → sélection des actions (`scheduler.py`).
-  - `utils/` → configuration des logs (`logging_conf.py`).
-
----
-
-## Outputs détaillés
-
-### `impact_summary.csv`
-- **event** → type d’événement (ex. Engine wash).
-- **timestamp_event** → date/heure de l’événement.
-- **delta_fuel_flow** → variation moyenne du fuel flow après vs avant.
-- **delta_fuel** → conversion en unités de carburant.
-- **Comportement** → toujours recréé, même vide (entête uniquement).
-
-### `fuel_flow_timeline.png`
-- Courbe du fuel flow dans le temps.
-- Lignes verticales pour les événements.
-- Message “No data available” si données absentes.
-- Toujours recréé.
-
-### `maintenance_plan.csv`
-- **event** → intervention retenue.
-- **expected_savings** → économies estimées.
-- **cost** → coût de l’intervention.
-- **downtime_hours** → durée d’immobilisation.
-- **ROI** → retour sur investissement.
-- Toujours recréé, même vide.
-
-### `data_F*.csv`
-- Données sélectionnées et traitées par avion. Utilisées dans le calcul de D(t).
----
-
-## Configuration (`settings.json`)
-
-### Impact analysis
-- `merge_tolerance_days` → tolérance d’alignement mesures/événements.
-- `before_after_window_days` → taille de la fenêtre avant/après pour calculer les moyennes.
-
-### Economics
-- `fuel_price_per_unit` → prix du carburant (unité cohérente avec les données).
-- `constraints.budget` → budget total disponible.
-- `constraints.max_downtime_hours` → downtime maximal autorisé.
-
----
-
-# Structure détaillée du code
-
-## Modules et classes
-
-### `classes/io/data_loader.py`
-- **Utilité :** Charger les données brutes (mesures TXT et événements).
-- **Fonctions principales :**
-  - Lecture du fichier TXT de performance (fuel flow, etc.), avec détection automatique du séparateur et gestion des entêtes (`skiprows`).
-  - Lecture des événements (Excel/CSV), sélection de la première feuille disponible.
-  - Retourne un DataFrame et le nom de la feuille (utilisé comme `tail_number`).
-
-### `classes/io/schemas.py`
-- **Utilité :** Standardiser et valider les colonnes.
-- **Fonctions principales :**
-  - Harmonisation des noms de colonnes (casing, underscores).
-  - Application des mappings définis dans `settings.json`.
-  - Validation stricte : présence des colonnes obligatoires et types corrects.
-
-### `classes/processing/cleaning.py`
-- **Utilité :** Nettoyer et fiabiliser les données.
-- **Fonctions principales :**
-  - Construction du champ `timestamp` à partir de `recorded_date` et `time`.
-  - Correction des anomalies temporelles (`NaT`).
-  - Suppression des doublons.
-  - Nettoyage des colonnes numériques et ajout de flags de qualité.
-
-### `classes/processing/low_pass_filtering.py`
-- **Utilité :** filtrer les courbes de fuel flow factor
-- **Fonctions principales :**
-  - `apply_lowpass_filter` : filtrer les données
-  - `generate_filter_comparison_plots` : tracer les signaux filtrés
-
-### `classes/processing/filtering_period_optimizer.py`
-- **Utilité :** trouver la taille de filtre optimale à partir de l'écart-type sur le calcul de D(t)
-- **Fonctions principales :**
-  - `integrate_D_std` : fonction permettant d'intégrer l'écart-type sur une courbe de D(t) calculée. 
-  - `run_pipeline` : filtre les données de Fuel Flow Factor pour plusieurs tailles de filtre, et calcule à chaque fois l'intégrale de l'écart-type pour déterminer le meilleur filtrage. 
-
-### `classes/domain/maintenance.py`
-- **Utilité :** Définir le catalogue des interventions de maintenance.
-- **Fonctions principales :**
-  - Création du catalogue depuis `settings.json` (coûts, downtime, effets attendus).
-  - Structure exploitable par l’optimiseur.
-
-### `classes/domain/apm_models.py`
-- **Utilité :** Point d’extension pour modèles métier (APM).
-- **Fonctions principales :**
-  - Prévu pour accueillir des calculs additionnels ou règles spécifiques.
-
-### `classes/analysis/impact_analysis.py`
-- **Utilité :** Calculer l’impact des événements sur les mesures.
-- **Fonctions principales :**
-  - `join_with_events` : associe événements et mesures via `merge_asof` avec tolérance.
-  - `before_after` : calcule les deltas de métriques (ex. fuel flow) avant/après chaque événement.
-
-### `classes/analysis/global_drift.py`
-- **Utilité :** Calculer l'évolution libre du fuel flow factor.
-- **Fonctions principales :**
-  - `compute_D` : calcule D(t)
-  - `plot_D` :  affiche le résultat 
-
-### `classes/analysis/tests/test_global_drift.py`
-- **Utilité :** Appeler proprement les fonctions stockées dans global_drift.py
-
-
-### `classes/analysis/reporting.py`
-- **Utilité :** Produire les exports et visualisations.
-- **Fonctions principales :**
-  - `summary_tables` : exporte `impact_summary.csv` (toujours recréé).
-  - `plot_metric` : génère `fuel_flow_timeline.png` avec markers d’événements.
-  - `export_csv` : exporte `maintenance_plan.csv` (toujours recréé).
-
-### `classes/optimization/scheduler.py`
-- **Utilité :** Optimiser le plan de maintenance.
-- **Fonctions principales :**
-  - Prend en entrée le catalogue, le prix du carburant et les contraintes.
-  - Calcule ROI des interventions.
-  - Sélectionne les actions rentables sous contraintes (budget, downtime).
-
-### `classes/utils/logging_conf.py`
-- **Utilité :** Configurer le logger.
-- **Fonctions principales :**
-  - Définir le niveau de log (`INFO`, `DEBUG`, etc.).
-  - Uniformiser les messages pour tout le pipeline.
-
----
-
-## Chronologie de `main.py`
-
-1. **Initialisation**
-   - Lecture de `settings.json`.
-   - Configuration du logger.
-
-2. **Chargement des données**
-   - Lecture du fichier TXT de mesures.
-   - Lecture des événements (première feuille disponible).
-   - Ajout de `tail_number` aux événements.
-
-3. **Standardisation et nettoyage**
-   - Harmonisation des colonnes via `schemas.py`.
-   - Construction et correction des timestamps.
-   - Suppression des doublons et nettoyage des colonnes numériques.
-   - Tri des DataFrames (`df_txt` par `timestamp`, `events_df` par `date`).
-
-4. **Alignement événements ↔ mesures**
-   - `merge_asof` avec tolérance (`merge_tolerance_days`).
-   - Production du DataFrame fusionné `merged`.
-
-5. **Calcul des impacts**
-   - Calcul des deltas avant/après (`before_after_window_days`).
-   - Création de `deltas_ff` avec `delta_fuel_flow` et `delta_fuel`.
-
-6. **Optimisation économique**
-   - Construction du catalogue de maintenance.
-   - Lecture du prix du carburant et des contraintes.
-   - Vérification de la présence de `delta_fuel`.
-   - Optimisation via `scheduler.optimize` → production du plan.
-
-7. **Reporting**
-   - **Résumé des impacts :**
-     - Warning si `deltas_ff` est vide.
-     - Export de `impact_summary.csv` (toujours recréé).
-   - **Graphique fuel flow :**
-     - Export de `fuel_flow_timeline.png` (toujours recréé).
-   - **Plan de maintenance :**
-     - Warning si `plan` est vide.
-     - Export de `maintenance_plan.csv` (toujours recréé).
-
-8. **Fin du pipeline**
-   - Log “Pipeline completed.” pour confirmer la complétion.
-
----
-
-# Contenu du dossier `data`
-
-Le dossier `data` contient trois documents essentiels au fonctionnement et à la compréhension du pipeline.  
-Voici leur rôle détaillé :
-
----
-
-### 1. `Boeing_Perf_Data.txt`
-- **Nature :** Fichier texte brut contenant les mesures de performance avion.
-- **Contenu typique :**
-  - Colonnes comme `Recorded Date`, `Time`, `Fuel Flow`, `EGT`, `N1`, `N2`, etc.
-  - Chaque ligne correspond à un enregistrement de vol ou de test.
-- **Utilité dans le pipeline :**
-  - Sert de base pour calculer les métriques (ex. fuel flow).
-  - Les colonnes sont standardisées et nettoyées (`timestamp` construit à partir de `Recorded Date` + `Time`).
-  - Alimente l’analyse avant/après pour mesurer l’impact des événements de maintenance.
-
----
-
-### 2. `FHMRB.xlsx`
-- **Nature :** Fichier Excel contenant les événements de maintenance pour un avion identifié par le sheet `FHMRB`.
-- **Contenu typique :**
-  - Colonnes comme `Date`, `Event`, `Description`, parfois `Cost` ou `Downtime`.
-  - Chaque ligne correspond à une intervention ou inspection.
-- **Utilité dans le pipeline :**
-  - Les événements sont alignés avec les mesures du TXT via `merge_asof`.
-  - Le nom de la feuille (`FHMRB`) est utilisé comme `tail_number` pour identifier l’avion.
-  - Permet de calculer les deltas de performance avant/après chaque événement.
-
----
+# PIE_COA_10
 
-### 3. `APM_User_Manual.pdf`
-- **Nature :** Document PDF de référence utilisateur pour l’APM (Aircraft Performance Monitoring).
-- **Contenu typique :**
-  - Explications théoriques et pratiques sur les métriques de performance.
-  - Définitions des colonnes et variables utilisées dans les fichiers TXT.
-  - Procédures standard de collecte et d’interprétation des données.
-  - Recommandations sur l’utilisation des outils APM et sur la maintenance.
-- **Utilité dans le pipeline :**
-  - Sert de guide pour comprendre la signification des données brutes.
-  - Permet de contextualiser les résultats (ex. interprétation correcte d’un delta fuel flow).
-  - Aide à configurer correctement les mappings et validations dans `schemas.py`.
-  - Document de référence pour l’équipe afin d’assurer cohérence et conformité avec les standards APM.
+Projet d'analyse de performance avion (APM) orienté maintenance.
 
----
+Ce document explique:
 
-## Résumé
-- **`Boeing_Perf_Data.txt`** → Données brutes de performance (mesures techniques).  
-- **`FHMRB.xlsx`** → Événements de maintenance (interventions, inspections).  
-- **`APM_User_Manual.pdf`** → Manuel utilisateur APM, guide théorique et pratique pour interpréter les données et assurer cohérence.  
+1. ce que fait le projet,
+2. comment l'utiliser pas à pas,
+3. comment lire les resultats,
 
-Ces trois documents sont complémentaires : le TXT fournit les mesures, l’Excel fournit les événements, et le PDF fournit le cadre théorique et méthodologique pour analyser et interpréter correctement les résultats.
+## 1. Objectif metier
 
+Le projet aide a repondre a la question suivante:
 
+- Les actions de maintenance ont-elles un effet mesurable sur la performance carburant?
 
+Le pipeline relie:
 
+1. des donnees de performance (fichier TXT),
+2. des evenements de maintenance (fichier Excel),
+3. des regles de traitement (fichier de configuration JSON),
 
+pour produire des fichiers de sortie exploitables (CSV et graphiques).
 
-# Structure du projet
+## 2. Ce que le pipeline fait aujourd'hui
 
-## 1. Main.py
+Le pipeline principal est `main.py`.
 
-Scripts utilisés :  
-classes.utils.logging_conf  
-classes.io.data_loader  
-classes.io.schemas  
-classes.processing.cleaning  
-classes.domain.apm_models  
-classes.domain.maintenance  
-classes.analysis.reporting  
-classes.optimization.scheduler  
-classes.analysis.impact_analysis  
+Il execute automatiquement:
 
+1. chargement des fichiers source,
+2. harmonisation et nettoyage des donnees,
+3. filtrage passe-bas du signal de performance,
+4. export des donnees traitees par avion,
+5. generation de graphiques brut vs filtre,
+6. analyse de correlation,
+7. export global de donnees nettoyees.
 
 
----
+## 3. Structure du projet
 
-# 2. Classes
+### 3.1 Dossiers principaux
 
-## 2.1 analysis
-### 2.1.1 event_types.py
-Ce script centralise les types d’évènements autorisés pour l’estimation d’impact de maintenance.
+- `main.py`: point d'entrée du pipeline.
+- `config/settings.json`: configuration centrale.
+- `data/`: donnees d'entrée.
+- `outputs/`: resultats generés.
+- `classes/`: modules de traitement.
+- `notebooks/`: notebooks d'exploration/test.
 
----
+### 3.2 Modules Python par role
 
-### 2.1.2 impact_analysis.py
+#### Chargement / schema
 
-**Script utilisé :**
-- classes.analysis.event_types
+- `classes/io/data_loader.py`
+  - charge le TXT de performance,
+  - detecte automatiquement le separateur,
+  - charge les evenements Excel.
+- `classes/io/schemas.py`
+  - standardise les noms de colonnes,
+  - applique les mappings,
+  - valide les colonnes critiques.
 
-**Fonctions définies :**
+#### Nettoyage et traitement signal
 
-#### build_event_intervals
-- Transforme une liste d'événements en intervalles temporels.
-- Retourne un tableau où chaque ligne représente un intervalle entre deux maintenances pour définir les périodes d’analyse avant/après chaque maintenance.
+- `classes/processing/cleaning.py`
+  - construit/corrige les timestamps,
+  - supprime les doublons,
+  - nettoie les colonnes numériques,
+  - ajoute des indicateurs de qualite.
+- `classes/processing/low_pass_filtering.py`
+  - applique un filtre passe-bas Butterworth,
+  - trace la comparaison signal brut / signal filtre,
+  - annote les evenements de maintenance.
 
-#### slice_series
-- Extrait un segment de séries temporelles entre deux dates.
-- Retourne uniquement timestamp et la métrique demandée.
+#### Analyse
 
-#### fit_drift_rate
-- Estime la pente d’une métrique dans un intervalle.
-- Mesure la dégradation progressive entre deux maintenances.
+- `classes/analysis/correlation.py`
+  - calcule les correlations de Pearson par avion.
+- `classes/analysis/impact_analysis.py`
+  - calcule des metriques avant/apres maintenance,
+  - estime des impacts par type,
+  - fournit des tableaux de synthese.
+- `classes/analysis/global_drift.py`
+  - calcule D(t), une derive globale post-maintenance.
+- `classes/analysis/reporting.py`
+  - exporte CSV et graphiques.
 
-#### mean_in_stabilization_window
-- Calcule la moyenne de la métrique juste après une maintenance.
-- Mesure l’effet immédiat d’une maintenance.
+#### Modele metier et optimisation
 
-#### compute_non_maintenance_metrics
-Calcule toutes les métriques nécessaires pour chaque intervalle :
+- `classes/domain/maintenance.py`
+  - catalogue des maintenances (cout, downtime, etc.).
+- `classes/optimization/scheduler.py`
+  - selection gloutonne d'actions selon ROI et contraintes.
 
-- baseline_before : moyenne avant maintenance  
-- mean_after : moyenne dans la fenêtre de stabilisation  
-- drift_rate : pente après maintenance  
-- valid : indique si l’intervalle est exploitable  
+## 4. Donnees d'entree requises
 
-Gère aussi :
-- fallback si pas d’événement précédent  
-- choix automatique de la métrique (perf_factor ou fuel_flow)
+### 4.1 Donnees performance (TXT)
 
-Produit la table centrale de l’analyse d’impact.
+Par defaut:
 
-#### estimate_type_rates
-Estime un taux d’impact moyen par type de maintenance.
+- `data/Boeing_Perf_Data.txt`
 
-Pour chaque événement valide :
-- Cherche la précédente maintenance du même type
-- Calcule : rate = (baseline_before - mean_after) / delta_t
+Colonnes typiques attendues (avant mapping):
 
-Agrégation par type :
-- moyenne  
-- écart-type  
-- nombre d’observations  
+- `Date Recorded ()`
+- `Time`
+- `Airplane ID ()`
+- `FF Total`
 
-Modélise l’impact typique d’une maintenance.
+Le mapping vers les noms internes se fait dans `config/settings.json`.
 
-#### compute_maintenance_impact
-Estime l’impact modélisé de chaque maintenance.
+### 4.2 Evenements maintenance (Excel)
 
-Pour chaque événement :
-- Cherche la précédente maintenance du même type
-- Calcule delta_t
+Par defaut:
 
-Deux cas :
-- Taux disponible : impact_model = rate_mean * delta_t
-- Sinon fallback : impact_model = drift_rate_mean * delta_t
+- `data/CMA-FORM-FOE-10 (Perf Factor - Fuel Flow factor Record).xlsx`
 
-Ajoute :
-- impact_observed  
-- source du taux (type_rate ou fallback_drift)
+Feuilles cibles configurees:
 
-Produit les deltas utilisés pour l’optimisation.
+- `FHMRB`, `FHMRF`, `FHMRO`, `FHMRI`
 
-#### summarize_global
-Produit une synthèse globale :
+Note:
 
-- nombre d’intervalles valides  
-- moyenne et écart-type des dérives  
-- nombre de types couverts  
-- moyenne des taux par type  
-- nombre d’événements modélisés  
-- moyenne et écart-type des impacts modélisés  
-- nombre de fallback utilisés  
+- `main.py` ignore explicitement `FHMRI` dans le traitement actuel.
 
----
+## 5. Configuration (`config/settings.json`)
 
-### 2.1.3 reporting.py
-Définit une classe Reporter permettant de créer proprement :
-- impact_summary.csv
-- maintenance_plan.csv
+Le fichier de configuration contient tout ce qu'un utilisateur doit adapter.
 
----
+Sections importantes:
 
-## 2.2 domain
+1. `paths`: chemins des donnees et sorties.
+2. `excel_sheets_priority`: ordre des feuilles avion.
+3. `txt_read`: lecture TXT (skip rows, encodage, separateurs).
+4. `columns_mapping`: correspondance des noms de colonnes.
+5. `schema`: colonnes obligatoires/optionnelles.
+6. `cleaning`: regles de nettoyage.
+7. `lowpass_filter`: parametres de filtrage.
+8. `selected_tail_numbers`: avions a traiter.
+9. `impact`: parametres d'analyse d'impact (modules avances).
+10. `economics`: parametres economiques et catalogue maintenance.
 
-### 2.2.1 apm_models.py
-Classe APMModels :
+## 6. Installation pas a pas (Windows)
 
-- Charger des paramètres depuis un fichier de settings  
-- Ajouter des constantes de performance dans un DataFrame  
-- Convertir perf_factor → fuel_factor via un modèle linéaire  
-- Calculer fuel_expected_corr  
+Depuis le dossier du projet.
 
----
+### 6.1 Creer un environnement Python
 
-### 2.2.2 maintenance.py
-Ce script sert à :
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-- Définir un type de maintenance (nom, coût, downtime, impact attendu)
-- Construire un catalogue de maintenances
-- Charger automatiquement ce catalogue depuis les settings
+### 6.2 Installer les dependances
 
-Brique métier utilisée par l’optimiseur.
+Installez manuellement:
 
----
+```powershell
+pip install pandas numpy matplotlib seaborn scipy openpyxl
+```
 
-## 2.3 io
+## 7. Lancer le pipeline
 
-### 2.3.1 data_loader.py
-Fonctionnalités :
+```powershell
+python main.py
+```
 
-- Détecte automatiquement le séparateur d’un TXT  
-- Charge proprement un Excel d’événements  
-- Charge un TXT de séries temporelles avec :  
-  - mapping des colonnes  
-  - parsing robuste des dates  
-  - construction d’un timestamp  
-  - nettoyage des valeurs manquantes  
-  - tri chronologique  
+Si tout est correct:
 
----
+- vous verrez les logs de progression,
+- les fichiers de sortie apparaitront dans `outputs/`,
+- le log final indiquera le succes du pipeline.
 
-### 2.3.2 schemas.py
-Classe DataSchema :
+## 8. Sorties generees et interpretation
 
-- Standardise les noms de colonnes  
-- Applique les mappings définis dans les settings  
-- Convertit en datetime  
-- Valide les colonnes critiques  
+### 8.1 Sorties produites par le pipeline principal
 
-Garantit un dataframe propre et cohérent.
+- `outputs/data_<TAIL>.csv`
+  - donnees traitees par avion,
+  - contient la colonne filtree `%ff_dev_total_(%)_filtered` si calculable.
+- `outputs/lowpass_filter_<TAIL>.png`
+  - comparaison signal brut (bruite) et signal filtre (tendance),
+  - positions des evenements de maintenance.
+- `outputs/data_processed.csv`
+  - jeu de donnees global nettoye.
 
----
+### 8.2 Comment lire un graphe `lowpass_filter_<TAIL>.png`
 
-## 2.4 optimization
+- Courbe brute: variation mesurée, souvent bruitée.
+- Courbe filtrée: tendance de fond.
+- Lignes verticales: dates d'évènements de maintenance.
 
-### 2.4.1 scheduler.py
-Classe MaintenanceScheduler :
+Lecture métier simple:
 
-- Charge un catalogue de maintenances  
-- Lit les deltas d’impact carburant  
-- Calcule un ROI  
-- Retourne un plan optimal (greedy) sous contraintes :  
-  - budget maximal  
-  - downtime maximal  
+- une baisse de la tendance apreè maintenance peut indiquer un effet favorable,
+- une tendance stable ou en hausse suggère un effet faible, court ou absent.
 
-Sélection si :
-- ROI > 0  
-- coût total ≤ budget  
-- downtime total ≤ max downtime  
+### 8.3 Fichiers de sortie avances (selon scripts executes)
 
----
+Vous pouvez aussi trouver:
 
-## 2.5 processing
+- `outputs/impact_interval_non_maintenance.csv`
+- `outputs/maintenance_type_rates.csv`
+- `outputs/maintenance_impacts_modeled.csv`
+- `outputs/impact_summary.csv`
+- `outputs/maintenance_plan.csv`
 
-### 2.5.1 cleaning.py
-Classe DataCleaner :
+Ces fichiers sont liés aux modules d'impact/optimisation et a des runs complémentaires.
 
-- Vérifie la plausibilité des timestamps  
-- Supprime les doublons  
-- Ajoute des indicateurs de qualité  
-- Construit un timestamp propre  
-- Nettoie perf_factor et fuel_flow  
+## 9. Mode d'emploi client (operatoire)
 
----
+Procédure recommandée à chaque nouvelle livraison de données:
 
-### 2.5.2 feature_engineering.py
-Classe FeatureEngineer :
+1. deéoser les nouveaux fichiers dans `data/`,
+2. vérifier/adapter `config/settings.json`,
+3. lancer `python main.py`,
+4. ouvrir les graphiques dans `outputs/`,
+5. partager les CSV de sortie pour validation metier.
 
-- Crée une baseline roulante  
-- Agrégations AIRAC ou mensuelles  
+## 10. Parametres à ajuster en priorité
 
----
+### 10.1 Choix des avions
 
-## 2.6 utils
+Modifier:
 
-### 2.6.1 logging_conf.py
-Format de logs homogène.
+- `selected_tail_numbers`
 
-### 2.6.2 time_windows.py
-Calcul de durées entre deux dates.
+### 10.2 Niveau de lissage du filtre
 
----
+Modifier dans `lowpass_filter`:
 
-# 3. Config
+- `cutoff_period_weeks` (plus grand = plus lisse),
+- `order` (ordre du filtre).
 
-- 3.1 settings.json
-- Ce fichier comporte tous les paramètres d'entrée du problème.
+### 10.3 Mapping des colonnes source
 
----
+Modifier:
 
-# 4. Data
+- `columns_mapping.txt`
+- `columns_mapping.excel_events`
 
-- 4.1 APM_User_Manual.pdf  
-- 4.2 Boeing_Perf_Data.txt  
-- 4.3 CMA-FORM-FOE-10.xlsx  
+Utiliser cette section si les noms de colonnes fournis par le client changent.
 
----
+## 11. Fonctions avancées disponibles
 
-# 5. Notebooks
+Le projet inclut des briques deja codees pour des usages plus pousses:
 
-- 5.1 clone_project.ipynb  
-- 5.2 exploration.ipynb  
-- 5.3 test_main.ipynb  
+1. `classes/analysis/impact_analysis.py`
+   - calcul d'impacts avant/apres,
+   - estimation de taux par type de maintenance.
+2. `classes/optimization/scheduler.py`
+   - proposition d'actions selon ROI/budget/downtime.
+3. `classes/analysis/global_drift.py`
+   - derive globale D(t) multi-avions.
 
----
+Ces briques peuvent etre integrees dans un flux client finalise en phase suivante.
 
-# 6. Outputs
+## 12. Tests et verification
 
-- 6.1 fuel_flow_timeline.png  
-- 6.2 impact_interval_non_maintenance.csv  
-- 6.3 impact_summary.csv  
-- 6.4 maintenance_impacts_modeled.csv  
-- 6.5 maintenance_plan.csv  
-- 6.6 maintenance_type_rates.csv  
+Scripts de test disponibles:
 
+- `classes/analysis/tests/test_global_drift.py`
 
+### Pourquoi `test_global_drift.py` est important
 
+Ce script est un test important car il vérifie que la logique de dérive globale `D(t)` reste cohérente et exploitable.
 
+Il valide notamment:
 
+1. que le calcul de `D(t)` s'exécute sans erreur sur les sorties filtrées,
+2. que la condition mathematique de reference `D(0) = 0` est respectée,
+3. que la structure des résultats est saine (`t_days` trie, `n_samples > 0`),
+4. que les graphes de dérive peuvent être générés pour revue métier.
 
+Exemple:
 
+```powershell
+python -m classes.analysis.tests.test_global_drift
+```
+
+## 13. Dépannage rapide
+
+### Erreur "fichier introuvable"
+
+Vérifier dans `config/settings.json`:
+
+- `paths.data_dir`
+- `paths.txt_file`
+- `paths.excel_file`
+
+### Erreur "colonne manquante"
+
+Veéifier:
+
+- les noms de colonnes dans les fichiers source,
+- le mapping dans `columns_mapping`.
+
+### Pas de courbe filtrée
+
+Vérifier:
+
+- que `%ff_dev_total_(%)` existe dans vos donnees,
+- que la colonne contient bien des valeurs numeriques exploitables.
+
+### Avion ignore dans les sorties
+
+Vérifier:
+
+- sa présence dans `selected_tail_numbers`,
+- sa présence reelle dans la colonne `tail_number` du TXT.
+
+## 14. Limites actuelles (transparence)
+
+1. Le pipeline principal ne chaine pas encore automatiquement toute la partie impact + optimisation.
+2. Le projet ne fournit pas encore de fichier de dependances verrouille (`requirements.txt` / lockfile).
+3. Certains scripts sont exploratoires et doivent etre valides avant usage production.
+4. La qualité des résultats depend de la qualité des timestamps et des mappings de colonnes.
+
+## 15. Glossaire simple
+
+- `tail_number`: identifiant avion (ex: FHMRB).
+- `timestamp`: date + heure de la mesure.
+- `filtre passe-bas`: méthode qui lisse le bruit pour mieux voir la tendance.
+- `derive`: évolution progressive d'un indicateur dans le temps.
+- `ROI`: retour sur investissement (gain estime - coût).
 

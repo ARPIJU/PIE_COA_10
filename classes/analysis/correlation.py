@@ -2,9 +2,16 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from pathlib import Path
+import re
 
 
-def correlation(files, target):
+def _safe_filename(text: str) -> str:
+    """Convertit une chaine en nom de fichier compatible."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(text)).strip("_")
+    return cleaned or "target"
+
+
+def correlation(files, target, output_path=None, show_plot=True):
     if not files:
         raise ValueError("La liste des fichiers est vide.")
 
@@ -119,7 +126,20 @@ def correlation(files, target):
     for j in range(n_files, len(axes)):
         axes[j].set_axis_off()
 
-    plt.show()
+    if output_path is None:
+        outputs_dir = Path(__file__).resolve().parents[2] / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        output_path = outputs_dir / f"correlation_{_safe_filename(target)}.png"
+    else:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    if show_plot:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def clean_target_column(df, col):
