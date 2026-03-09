@@ -61,6 +61,8 @@ Il est conçu pour être **reproductible**, **transparent**, et **utile en conte
 - **ROI** → retour sur investissement.
 - Toujours recréé, même vide.
 
+### `data_F*.csv`
+- Données sélectionnées et traitées par avion. Utilisées dans le calcul de D(t).
 ---
 
 ## Configuration (`settings.json`)
@@ -102,6 +104,18 @@ Il est conçu pour être **reproductible**, **transparent**, et **utile en conte
   - Suppression des doublons.
   - Nettoyage des colonnes numériques et ajout de flags de qualité.
 
+### `classes/processing/low_pass_filtering.py`
+- **Utilité :** filtrer les courbes de fuel flow factor
+- **Fonctions principales :**
+  - `apply_lowpass_filter` : filtrer les données
+  - `generate_filter_comparison_plots` : tracer les signaux filtrés
+
+### `classes/processing/filtering_period_optimizer.py`
+- **Utilité :** trouver la taille de filtre optimale à partir de l'écart-type sur le calcul de D(t)
+- **Fonctions principales :**
+  - `integrate_D_std` : fonction permettant d'intégrer l'écart-type sur une courbe de D(t) calculée. 
+  - `run_pipeline` : filtre les données de Fuel Flow Factor pour plusieurs tailles de filtre, et calcule à chaque fois l'intégrale de l'écart-type pour déterminer le meilleur filtrage. 
+
 ### `classes/domain/maintenance.py`
 - **Utilité :** Définir le catalogue des interventions de maintenance.
 - **Fonctions principales :**
@@ -118,6 +132,16 @@ Il est conçu pour être **reproductible**, **transparent**, et **utile en conte
 - **Fonctions principales :**
   - `join_with_events` : associe événements et mesures via `merge_asof` avec tolérance.
   - `before_after` : calcule les deltas de métriques (ex. fuel flow) avant/après chaque événement.
+
+### `classes/analysis/global_drift.py`
+- **Utilité :** Calculer l'évolution libre du fuel flow factor.
+- **Fonctions principales :**
+  - `compute_D` : calcule D(t)
+  - `plot_D` :  affiche le résultat 
+
+### `classes/analysis/tests/test_global_drift.py`
+- **Utilité :** Appeler proprement les fonctions stockées dans global_drift.py
+
 
 ### `classes/analysis/reporting.py`
 - **Utilité :** Produire les exports et visualisations.
